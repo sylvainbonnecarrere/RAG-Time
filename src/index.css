@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #4a5467;
+  }
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* Amélioration du contraste et de la lisibilité sous le header demandée par l'utilisateur */
+.bg-\[\#09090b\] {
+  background-color: #4a5467 !important;
+}
+
+/* Subtle dot texture and radial background effects */
+.bg-grid-pattern {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+}
+
+.bg-radial-subtle {
+  background: radial-gradient(circle 800px at 50% -20%, rgba(99, 102, 241, 0.12), transparent 70%);
+}
+
+.bg-radial-glow {
+  background: radial-gradient(circle 600px at 50% 50%, rgba(79, 70, 229, 0.08), transparent 75%);
+}

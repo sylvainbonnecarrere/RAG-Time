@@ -1,0 +1,6 @@
+{
+  "name": "RAGTIME - Enterprise RAG Platform",
+  "description": "Plateforme RAG auto-hébergée, souveraine et multi-tenant en Dark Mode Premium avec ingestion multi-sources, vectorisation pgvector et citations sourcées auditables.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
