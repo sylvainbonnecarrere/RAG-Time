@@ -30,10 +30,15 @@ import {
   ArrowRight,
   Database,
   Download,
+  Info,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 import { defaultApiClient } from '../../services/apiClient';
 import { validateTenantForm } from '../../lib/validation/schemas';
 import { FormFieldFeedback } from './FormFieldFeedback';
+import { SUPPORTED_EMBEDDING_MODELS } from './RagEmbeddingConfig';
+import { ArchitectureInfoModal } from './ArchitectureInfoModal';
 
 interface DomainConfigModalProps {
   isOpen: boolean;
@@ -132,10 +137,12 @@ export const DomainConfigModal: React.FC<DomainConfigModalProps> = ({
   const [workspaceName, setWorkspaceName] = useState('');
   const [description, setDescription] = useState('');
   const [systemInstructions, setSystemInstructions] = useState('');
+  const [selectedEmbeddingModel, setSelectedEmbeddingModel] = useState<string>('nomic-embed-text-v1.5 (768d)');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [formWarnings, setFormWarnings] = useState<Record<string, string>>({});
+  const [isArchModalOpen, setIsArchModalOpen] = useState(false);
 
   // Modal d'avertissement de suppression
   const [tenantToDelete, setTenantToDelete] = useState<TenantDTO | null>(null);
@@ -158,6 +165,7 @@ export const DomainConfigModal: React.FC<DomainConfigModalProps> = ({
       setWorkspaceName(target.name || '');
       setDescription(target.description || '');
       setSystemInstructions(target.system_instructions || '');
+      setSelectedEmbeddingModel(target.default_embedding_model || 'nomic-embed-text-v1.5 (768d)');
     } else if (mode === 'create') {
       const preset = DOMAIN_PRESETS.find((p) => p.id === 'general')!;
       setSelectedCategory('general');
@@ -165,6 +173,7 @@ export const DomainConfigModal: React.FC<DomainConfigModalProps> = ({
       setWorkspaceName('Mon Nouvel Espace RAG');
       setDescription(preset.description);
       setSystemInstructions(preset.defaultInstructions);
+      setSelectedEmbeddingModel('nomic-embed-text-v1.5 (768d)');
     }
   }, [selectedTenantToEdit, activeTenant, mode, isOpen]);
 
@@ -220,6 +229,7 @@ export const DomainConfigModal: React.FC<DomainConfigModalProps> = ({
           domain_category: selectedCategory,
           description: sanitizedData.description,
           system_instructions: sanitizedData.system_instructions,
+          default_embedding_model: selectedEmbeddingModel,
         });
         setNotification('Domaine du RAG mis à jour avec succès !');
       } else {
@@ -229,6 +239,7 @@ export const DomainConfigModal: React.FC<DomainConfigModalProps> = ({
           domain_category: selectedCategory,
           description: sanitizedData.description,
           system_instructions: sanitizedData.system_instructions,
+          default_embedding_model: selectedEmbeddingModel,
         });
         setNotification('Nouvel espace RAG créé avec isolation vectorielle étanche !');
       }
@@ -667,6 +678,85 @@ export const DomainConfigModal: React.FC<DomainConfigModalProps> = ({
                 </div>
               </div>
 
+              {/* Bloc Choix du Modèle d'Embedding Vectoriel (US-FRONT-36 & US-FRONT-38) */}
+              <div className="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800/80 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Cpu className="w-4 h-4 text-indigo-400" />
+                    <label className="font-semibold text-zinc-200 text-xs">
+                      Modèle d'Embedding Vectoriel Initial (pgvector)
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {mode === 'create' || ((selectedTenantToEdit || activeTenant)?.documents_count ?? 0) === 0 ? (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1">
+                        <Unlock className="w-3 h-3" />
+                        Espace Vierge : Personnalisable
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 flex items-center gap-1">
+                        <Lock className="w-3 h-3" />
+                        Scellé par { (selectedTenantToEdit || activeTenant)?.documents_count } document(s)
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setIsArchModalOpen(true)}
+                      className="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors underline decoration-indigo-700/60"
+                    >
+                      <Info className="w-3 h-3" />
+                      <span>Architecture & BDD</span>
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-zinc-400 leading-relaxed">
+                  {mode === 'create' || ((selectedTenantToEdit || activeTenant)?.documents_count ?? 0) === 0
+                    ? 'Sélectionnez le modèle qui définira la dimensionnalité exacte de votre espace vectoriel avant ingestion.'
+                    : 'Le modèle est verrouillé pour préserver la cohérence géométrique des vecteurs existants en base.'}
+                </p>
+
+                {/* Grille des 4 modèles */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                  {SUPPORTED_EMBEDDING_MODELS.map((model) => {
+                    const isSelected = selectedEmbeddingModel.startsWith(model.name) || selectedEmbeddingModel === model.id;
+                    const canEdit = mode === 'create' || ((selectedTenantToEdit || activeTenant)?.documents_count ?? 0) === 0;
+
+                    return (
+                      <button
+                        key={model.id}
+                        type="button"
+                        disabled={!canEdit}
+                        onClick={() => canEdit && setSelectedEmbeddingModel(model.id)}
+                        className={`p-3 rounded-lg border text-left transition-all relative ${
+                          isSelected
+                            ? 'bg-indigo-950/60 border-indigo-500/90 text-zinc-100 ring-1 ring-indigo-500/40 shadow-xs'
+                            : 'bg-zinc-900/60 border-zinc-800 text-zinc-300 hover:border-zinc-700'
+                        } ${!canEdit ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-xs text-zinc-100">{model.name}</span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-indigo-300 border border-zinc-700 font-bold">
+                            {model.dimensionLabel}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-zinc-400 mt-1 line-clamp-2">
+                          {model.description}
+                        </div>
+                        <div className="mt-2 flex items-center justify-between text-[9px] text-zinc-500">
+                          <span>{model.vramEstimate}</span>
+                          <span className={`px-1.5 py-0.5 rounded border ${model.badgeColor}`}>
+                            {model.badge}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Garantie d'isolation souveraine */}
               <div className="p-3 rounded-lg bg-zinc-900/90 border border-zinc-800 flex items-start gap-2.5 text-zinc-400">
                 <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
@@ -850,6 +940,12 @@ export const DomainConfigModal: React.FC<DomainConfigModalProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modale d'Architecture Souveraine & Explications BDD */}
+      <ArchitectureInfoModal
+        isOpen={isArchModalOpen}
+        onClose={() => setIsArchModalOpen(false)}
+      />
     </>
   );
 };

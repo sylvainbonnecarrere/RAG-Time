@@ -6,10 +6,18 @@ import { RagtimeLogo } from './RagtimeLogo';
 interface NavbarProps {
   currentView: 'landing' | 'v1' | 'plan' | 'demo' | 'auth';
   setCurrentView: (view: 'landing' | 'v1' | 'plan' | 'demo' | 'auth') => void;
+  v1Tab?: 'chat' | 'documents' | 'presets' | 'audit' | 'telemetry' | 'tests';
+  onOpenChatRag?: () => void;
   onOpenQuickDemo?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ currentView, setCurrentView, onOpenQuickDemo }) => {
+export const Navbar: React.FC<NavbarProps> = ({
+  currentView,
+  setCurrentView,
+  v1Tab = 'chat',
+  onOpenChatRag,
+  onOpenQuickDemo,
+}) => {
   const { isAuthenticated, user, logout, switchDemoRole } = useAuth();
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -19,6 +27,16 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, setCurrentView, onO
     setProfileDropdownOpen(false);
     setCurrentView('landing');
   };
+
+  const handleOpenChat = () => {
+    if (onOpenChatRag) {
+      onOpenChatRag();
+    } else {
+      setCurrentView('v1');
+    }
+  };
+
+  const isAlreadyOnChatRag = isAuthenticated && currentView === 'v1' && v1Tab === 'chat';
 
   // Fermer le dropdown en cliquant dehors
   useEffect(() => {
@@ -53,8 +71,8 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, setCurrentView, onO
             </div>
           </button>
 
-          {/* Status Badge */}
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-900/90 border border-zinc-750 text-[11px] text-zinc-400 ml-3">
+          {/* Status Badge sans contour */}
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-900/95 text-[11px] text-zinc-400 ml-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-emerald-400 font-medium">Cluster Opérationnel</span>
             <span className="text-zinc-600">|</span>
@@ -110,15 +128,17 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, setCurrentView, onO
         <div className="flex items-center gap-2.5">
           {isAuthenticated ? (
             <>
-              {/* Bouton direct vers le chat */}
-              <button
-                id="btn-nav-v1-cta"
-                onClick={() => setCurrentView('v1')}
-                className="text-xs px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-sm transition-colors flex items-center gap-1"
-              >
-                <span>Ouvrir le Chat RAG</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+              {/* Bouton direct vers le chat RAG - Masqué si déjà sur Mon espace RAG ET onglet Chat */}
+              {!isAlreadyOnChatRag && (
+                <button
+                  id="btn-nav-v1-cta"
+                  onClick={handleOpenChat}
+                  className="text-xs px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-sm transition-colors flex items-center gap-1 animate-in fade-in duration-200"
+                >
+                  <span>Ouvrir le Chat RAG</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              )}
 
               {/* Pastille Utilisateur avec Menu Déroulant de Bascule Rapide de Rôle (Phase 5 - Point 4) */}
               <div className="relative" ref={dropdownRef}>

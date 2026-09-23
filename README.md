@@ -48,7 +48,7 @@
 ## 4. Dossier de Cadrage & Collaboration Inter-Agents
 
 Pour assurer l'alignement strict entre les agents spécialisés, consultez le répertoire `/guide/` :
-- **[`/guide/PLAN_FRONTEND.md`](./guide/PLAN_FRONTEND.md)** : Découpage chronologique en User Stories pour le Frontend, critères d'acceptation par PR, gestion du SSE et des citations.
+- **[`/guide/plans/PLAN_FRONTEND.md`](./guide/plans/PLAN_FRONTEND.md)** : Découpage chronologique en User Stories pour le Frontend, critères d'acceptation par PR, gestion du SSE et des citations.
 - **[`/guide/GUIDE_COLLABORATION_AGENTS.md`](./guide/GUIDE_COLLABORATION_AGENTS.md)** : Règles de collaboration pour les agents Backend, Sécurité, IA/RAG, DevOps et QA (séparation des zones de confiance, contrats OpenAPI et SSE, garde-fous anti-régression).
 
 ---

@@ -5,7 +5,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { TenantDTO, UUID } from '../contracts/api-types';
+import { TenantDTO, RagPresetDTO, UUID } from '../contracts/api-types';
 import { defaultApiClient } from '../services/apiClient';
 
 interface TenantContextType {
@@ -19,11 +19,18 @@ interface TenantContextType {
     domain_category: TenantDTO['domain_category'];
     description?: string;
     system_instructions?: string;
+    default_embedding_model?: string;
   }) => Promise<TenantDTO>;
   updateTenant: (tenantId: UUID, updates: Partial<TenantDTO>) => Promise<TenantDTO>;
   deleteTenant: (tenantId: UUID) => Promise<void>;
   refreshTenants: () => Promise<void>;
   tenantSwitchCount: number; // Utilisé par les composants abonnés pour réinitialiser leur cache (TNR-02)
+
+  // Gestion synchronisée des presets RAG (US-FRONT-35 & TNR-31)
+  activePreset: RagPresetDTO | null;
+  presets: RagPresetDTO[];
+  activatePreset: (presetId: UUID) => Promise<RagPresetDTO>;
+  refreshPresets: () => Promise<void>;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
@@ -33,6 +40,20 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [activeTenant, setActiveTenant] = useState<TenantDTO | null>(null);
   const [isLoadingTenants, setIsLoadingTenants] = useState<boolean>(true);
   const [tenantSwitchCount, setTenantSwitchCount] = useState<number>(0);
+  const [presets, setPresets] = useState<RagPresetDTO[]>([]);
+  const [activePreset, setActivePreset] = useState<RagPresetDTO | null>(null);
+
+  const refreshPresets = useCallback(async () => {
+    if (!activeTenant) {
+      setPresets([]);
+      setActivePreset(null);
+      return;
+    }
+    const list = await defaultApiClient.getPresets(activeTenant.id);
+    setPresets(list);
+    const active = list.find((p) => p.is_active) || list[0] || null;
+    setActivePreset(active);
+  }, [activeTenant]);
 
   const refreshTenants = useCallback(async () => {
     const list = await defaultApiClient.getTenants();
@@ -47,6 +68,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     refreshTenants();
   }, [refreshTenants]);
 
+  useEffect(() => {
+    refreshPresets();
+  }, [refreshPresets]);
+
   const switchTenant = useCallback((tenantId: UUID) => {
     try {
       defaultApiClient.switchTenant(tenantId);
@@ -58,6 +83,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error('Échec du changement de tenant:', err);
     }
   }, [tenants]);
+
+  const activatePreset = useCallback(
+    async (presetId: UUID): Promise<RagPresetDTO> => {
+      if (!activeTenant) throw new Error('Aucun tenant actif');
+      const updated = await defaultApiClient.activatePreset(activeTenant.id, presetId);
+      await refreshPresets();
+      return updated;
+    },
+    [activeTenant, refreshPresets]
+  );
 
   const createTenant = useCallback(
     async (data: {
@@ -115,6 +150,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         deleteTenant,
         refreshTenants,
         tenantSwitchCount,
+        activePreset,
+        presets,
+        activatePreset,
+        refreshPresets,
       }}
     >
       {children}

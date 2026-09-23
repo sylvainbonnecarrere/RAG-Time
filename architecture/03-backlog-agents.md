@@ -44,13 +44,57 @@
 | **TNR-19** | `tnr-form-validation-feedback.test.ts` | Validation Formulaires | Tout champ invalide affiche son message explicatif contextualisé via `FormFieldFeedback`. |
 | **TNR-20** | `tnr-table-search-debounce.test.ts` | Moteur de Recherche | La recherche dans les tableaux s'exécute avec debounce réactif et affiche le ratio de résultats. |
 | **TNR-21** | `tnr-saved-conversations.test.ts` | Historique Chat | Restauration d'une session passée réinjecte intégralement l'échange et ses sources certifiées. |
-| **TNR-22** | `tnr-cross-encoder-rerank.test.ts` | Qualité RAG Phase 7 | Le re-ranking local affine l'ordonnancement sans jamais dégrader le score cosinus originel. |
-| **TNR-23** | `tnr-chunk-deduplication.test.ts` | Hygiène Vectorielle | Deux chunks textuellement identiques au sein d'un même tenant ne génèrent qu'un seul vecteur pgvector. |
-| **TNR-24** | `tnr-cross-domain-isolation.test.ts` | Synthèse Comparative | L'analyse comparative multi-domaines étiquette strictement chaque source par son `tenant_id` natif. |
-| **TNR-25** | `tnr-airgap-offline-cache.test.ts` | Résilience Déconnectée | La bascule en mode Air-Gap permet la consultation des archives et caches sans appel réseau externe. |
+| **TNR-22** | `tnr-async-ingestion-progress.test.ts` | Tâches ARQ Asynchrones | Suivi fluide de la file d'attente d'ingestion avec jauge et étapes sans blocage UI. |
+| **TNR-23** | `tnr-multi-format-export-crypto.test.ts` | Export Cryptographique | Validation des hashes SHA-256 et absence totale de fuite de tokens internes dans les exports. |
+| **TNR-24** | `tnr-telemetry-alert-reaction.test.ts` | Observabilité Dégradation | Déclenchement réactif des seuils d'alerte (TTFT > 800ms, VRAM > 85%) avec état visuel clair. |
+| **TNR-25** | `tnr-cosine-similarity-visual-scale.test.ts` | Inspecteur Cosinus Phase 7 | Étalonnage exact entre le score flottant nomic 768d et le thermomètre visuel (0.50 à 1.00), delta Top-1 exact. |
+| **TNR-26** | `tnr-trafilatura-extraction-options.test.ts` | Extraction Web Phase 7 | Le mode Précision élimine le boilerplate HTML sans rogner le corps textuel ni les en-têtes de tables. |
+| **TNR-27** | `tnr-deterministic-cleaning-invisibles.test.ts` | Nettoyage Déterministe P7 | Éradication certifiée des caractères invisibles (\u200B-\u200F, \uFEFF, \u00AD) et normalisation NFC sans casse de LaTeX. |
+| **TNR-28** | `tnr-chunking-multistrategy-invariants.test.ts` | Multi-Stratégies Chunking P7 | Respect absolu de chunk_overlap < chunk_size/2 sur glissant, et non-rupture des phrases en phrastique. |
+| **TNR-29** | `tnr-pre-indexing-dryrun-isolation.test.ts` | Simulation Dry-Run Phase 7 | Zéro appel INSERT dans PostgreSQL lors de la simulation, estimation exacte des tokens et de la VRAM. |
+| **TNR-30** | `tnr-contextual-header-prefixing.test.ts` | Préfixage Titre Phase 7 | Les chunks découpés par section Markdown reçoivent leur préfixe [Titre > Sous-titre] sans perte de corps. |
 
 ---
 
-## 3. Backlog Détaillé des User Stories (US-FRONT-01 à US-FRONT-30)
+## 3. Backlog Opérationnel des Agents — Phase 7 (Pipeline d'Ingestion & Expérience Visuelle)
 
-*(Voir `PLAN_FRONTEND.md` pour le détail exhaustif des critères d'acceptation, patterns SOLID et implémentations de chaque User Story).*
+### 3.1 Agent Backend Python (FastAPI, Trafilatura, ARQ & pgvector)
+- **Routes & DTOs Pydantic :**
+  - `POST /api/v1/ingestion/extract-url` : Extraction web avec Trafilatura (paramètres : `url`, `mode` ['precision', 'recall'], `include_tables`, `include_links`).
+  - `POST /api/v1/ingestion/clean-preview` : Nettoyage et audit de caractères invisibles (retourne diff A/B, métriques de nettoyage).
+  - `POST /api/v1/ingestion/dry-run` : Simulation de chunking et calcul du budget VRAM sans persistance en base.
+  - Extension de `POST /api/v1/documents/upload` et `POST /api/v1/documents/upload-async` pour accepter `chunking_strategy`, `cleaning_options`, `source_url`.
+- **Modèle de Données & Migrations Alembic :**
+  - Ajout des colonnes `source_url`, `extraction_method`, `cleaning_stats` dans `documents`.
+  - Ajout de `strategy_used`, `section_title`, `context_prefix` dans `document_chunks`.
+  - Ajout de `chunking_strategy`, `prefix_section_title` dans `rag_presets`.
+
+### 3.2 Agent Ingénieur IA / RAG
+- Implémentation du port `MultiStrategyChunkerPort` avec les 3 stratégies majeures :
+  1. *SlidingWindowChunker* : tokenizer local (SentencePiece / BPE), pas glissant et validation stricte `overlap < size/2`.
+  2. *SentenceBoundaryChunker* : regex de ponctuation forte adaptée à la typographie française, buffer de phrases jusqu'au plafond de tokens.
+  3. *MarkdownSectionChunker* : parseur AST CommonMark, extraction hiérarchique des titres H1/H2/H3 et préfixage `[Section > Sous-section]`.
+- Implémentation de la jauge cosinus et de la formule de calcul du delta Top-1 : $\Delta = \text{score}_{\text{chunk}} - \text{score}_{\text{top1}}$.
+
+### 3.3 Agent Frontend UX/UI
+- **Chat RAG Sourcé :**
+  - Badges de citations enrichis d'un mini-thermomètre cosinus et popover d'explication au survol.
+  - Tiroir `ChunkInspectorDrawer` intégrant la jauge thermique dégradée, le delta Top-1 et la formule mathématique.
+- **Ingestion & Jobs ARQ :**
+  - Onglet double source : Fichier local (glisser-déposer) vs Scraping d'URL Web (Trafilatura).
+  - Console de nettoyage déterministe avec bascules (Unicode NFC, Invisibles, Balises) et inspecteur A/B.
+  - Bouton interactif « Simuler le découpage (Dry-Run) » ouvrant le modal d'audit pré-indexation.
+- **Studio Preset RAG :**
+  - Sélecteur de stratégie de chunking avec formulaires dynamiques (masquage/affichage conditionnel des curseurs).
+  - Respect scrupuleux de l'immutabilité conditionnelle TNR-18 (édition libre sur domaine vierge, scellement sur domaine alimenté).
+  - Gestion simplifiée de presets nommés sans versioning rigide v1/v2, initialisation des 3 presets types lors de la création d'un domaine (« Équilibré et standard » par défaut), et affichage du preset retrieval actif dans le Chat RAG Sourcé.
+
+### 3.4 Agent Sécurité & Conformité
+- **Protection Anti-SSRF :** Validation stricte des URL fournies à Trafilatura (blocage des adresses privées RFC 1918 : 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.1, localhost).
+- **Audit d'Invisibles :** Vérification que le nettoyage éradique les caractères de contrôle utilisés pour tromper les filtres sémantiques ou injecter des instructions cachées (prompt injection invisible).
+
+---
+
+## 4. Backlog Détaillé des User Stories (US-FRONT-01 à US-FRONT-35 & TNR-25 à TNR-31)
+
+*(Voir `guide/plans/PLAN_FRONTEND.md` pour le détail exhaustif des critères d'acceptation, patterns SOLID et implémentations de chaque User Story).*

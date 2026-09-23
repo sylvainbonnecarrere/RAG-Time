@@ -13,7 +13,10 @@
 export function sanitizeInput(value: string | null | undefined): string {
   if (!value) return '';
   return value
-    .replace(/<[^>]*>?/gm, '') // Élimination des balises HTML
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Élimine les scripts et leur contenu
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '') // Élimine les styles et leur contenu
+    .replace(/<[^>]*>?/gm, '') // Élimination des balises HTML restantes
+    .replace(/javascript:/gi, '') // Élimination des pseudo-protocoles
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '') // Caractères de contrôle ASCII
     .trim();
 }
@@ -77,6 +80,8 @@ export function sanitizeSlug(slug: string): string {
 export function sanitizePrompt(prompt: string): string {
   if (!prompt) return '';
   return prompt
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Supprime les scripts
+    .replace(/<[^>]*>?/gm, '') // Supprime les balises HTML résiduelles
     .replace(/<\|.*?\|>/g, '') // Neutralise les tokens spéciaux LLM ex: <|im_start|>
     .replace(/\[INST\]|\[\/INST\]/g, '') // Neutralise les balises d'instruction Llama
     .replace(/\s+/g, ' ')

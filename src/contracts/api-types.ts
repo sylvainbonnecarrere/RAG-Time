@@ -27,6 +27,7 @@ export interface TenantDTO {
   domain_category: DomainCategory;
   description?: string;
   system_instructions?: string;
+  default_embedding_model?: string;
   created_at: string;
   is_active: boolean;
   role: TenantRole;
@@ -85,6 +86,9 @@ export interface RagDomainDTO {
   documents_count: number;
 }
 
+export type ChunkingStrategy = 'sliding_window' | 'sentence_boundary' | 'markdown_sections';
+export type TokenizerFamily = 'cl100k_base' | 'o200k_base' | 'regex_whitespace';
+
 export interface RagPresetDTO {
   id: UUID;
   tenant_id: UUID;
@@ -100,6 +104,29 @@ export interface RagPresetDTO {
   embedding_model: string;
   created_at: string;
   updated_at: string;
+
+  // Options dynamiques de partitionnement (US-FRONT-37)
+  chunking_strategy?: ChunkingStrategy;
+  prefix_section_title?: boolean;
+  parent_child_enabled?: boolean;
+
+  // Options Spécifiques Fenêtre Glissante
+  tokenizer_family?: TokenizerFamily;
+  word_boundary_trim?: boolean;
+
+  // Options Spécifiques Découpage Phrastique
+  sentences_per_chunk?: number; // 2 - 12 phrases
+  sentence_overlap?: number; // 0 - 3 phrases
+  respect_strong_punctuation?: boolean;
+  min_sentence_tokens?: number; // 20 - 100
+  max_sentence_tokens?: number; // 250 - 800
+  preserve_abbreviations?: boolean;
+
+  // Options Spécifiques Sections Markdown AST
+  markdown_heading_levels?: ('h1' | 'h2' | 'h3')[];
+  prefix_breadcrumbs?: boolean;
+  protect_atomic_blocks?: boolean;
+  max_section_tokens?: number; // 512 - 1500
 }
 
 export interface ChunkMetadataDTO {

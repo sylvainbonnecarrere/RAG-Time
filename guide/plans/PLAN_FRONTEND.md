@@ -512,6 +512,32 @@ Pour garantir une maintenabilité irréprochable et faciliter les tests automati
   - Les indicateurs de santé passent en ambre/rouge dès dépassement d'un seuil critique de performance.
   - L'export souverain de télémétrie JSON intègre l'ensemble des métriques Prometheus collectées.
 
+#### US-FRONT-27-BIS : Affichage Informatif Explicite du Preset RAG Actif & Paramètres de Vectorisation dans l'Écran d'Ingestion (Liaison Studio Presets)
+- **User Story :** En tant qu'analyste, documentaliste ou ingénieur IA indexant de nouveaux contenus, je veux voir affiché de façon explicite, complète et immédiatement lisible le Preset RAG sélectionné et actif pour le domaine cible (modèle d'embedding 768d pgvector, stratégie et taille de découpage des chunks, seuil de similarité cosinus, statut d'immutabilité vectorielle), avec un accès direct à sa fiche technique et un raccourci vers le Studio Presets, afin de savoir avec certitude quels hyperparamètres gouverneront l'ingestion sans devoir basculer d'onglet.
+- **Tâche PR :** `feat(ingestion-preset-banner): explicit domain RAG preset and vectorization hyperparameters informative banner with technical sheet modal and studio shortcut`
+- **Pattern & SOLID :** *Contextual Informative Component*, *Single Responsibility Principle*, *Observer Pattern* (écoute réactive des changements de preset et de domaine cible).
+- **Composants Implémentés :**
+  - `src/components/v1/DocumentIngestionView.tsx` :
+    - Bannière informative `border-indigo-900/60` positionnée au sommet de la zone d'ingestion.
+    - Détection dynamique du tenant cible d'affectation (`currentUploadTargetTenant`) et synchronisation asynchrone des presets associés (`targetDomainPresets`).
+    - Sélecteur rapide de permutation de preset actif si plusieurs configurations coexistent pour le domaine.
+    - 4 blocs métriques d'hyperparamètres clés :
+      1. **Modèle d'Embedding & Espace Vectoriel** (ex: `nomic-embed-text-v1.5`, 768 dimensions, cosine distance pgvector).
+      2. **Stratégie & Découpage Chunks** (Fenêtre glissante, Phrastique grammatical, Sections Markdown AST avec tailles en tokens et overlap).
+      3. **Seuil Cosinus & Retrieval** (seuil minimal d'admissibilité $\ge X.XX$, Top-K fragments, statut du reranker cross-encoder).
+      4. **Statut d'Immutabilité Vectorielle** (badge `🔒 Espace Scellé` avec décompte de documents indexés vs `🔓 Espace Vierge Modifiable`).
+    - Bouton d'action « Fiche Technique » ouvrant le modal `PresetInfoModal` pour consultation détaillée.
+    - Bouton d'action « Gérer dans le Studio » avec redirection fluide vers l'onglet Studio Presets RAG via `onNavigateToStudio`.
+    - Alignement automatique du simulateur Dry-Run (`PreIndexingDryRunModal`) sur la stratégie et les tokens du preset actif affiché.
+  - `src/components/v1/V1WorkspaceView.tsx` :
+    - Injection du callback `onNavigateToStudio` à `DocumentIngestionView`.
+- **Critères d'Acceptation :**
+  - L'écran "Ingestion et Jobs ARQ" affiche en permanence et sans ambiguïté les spécifications du preset RAG sélectionné pour le domaine de destination.
+  - La modification du domaine d'affectation met à jour atomiquement la bannière informative avec le preset actif du domaine sélectionné.
+  - Le clic sur « Fiche Technique » ouvre le modal `PresetInfoModal` avec les caractéristiques dimensionnelles et algorithmiques complètes.
+  - Le clic sur « Gérer dans le Studio » bascule instantanément l'utilisateur sur l'écran "Studio Presets RAG".
+  - Les paramètres de découpage du simulateur Dry-Run s'alignent automatiquement sur les valeurs de taille et de chevauchement du preset actif affiché.
+
 ---
 
 ## 4. Matrice de Couverture des Tests de Non-Régression (TNR)
@@ -542,4 +568,205 @@ Pour garantir une maintenabilité irréprochable et faciliter les tests automati
 | **TNR-22** | Suivi Asynchrone d'Ingestion ARQ (Phase 6) | Ingestion longue de document volumineux multi-pages | Suivi sans blocage de l'UI avec actualisation fluide de la barre de progression |
 | **TNR-23** | Intégrité Cryptographique des Exports Multi-Formats (Phase 6) | Exportation Markdown / JSON / TXT d'une réponse sourcée | Présence des métadonnées, respect des schémas et calcul conforme des hashes SHA-256 |
 | **TNR-24** | Réactivité de l'Alerting Télémétrique (Phase 6) | Dérive de latence TTFT > 800ms ou chute d'un service | Déclenchement visuel immédiat des alertes de dégradation cluster |
+| **TNR-25** | Inspecteur Visuel Cosinus (Phase 7) | Variation du score cosinus (0.50 à 1.00) | Gradient thermique continu vert/ambre/rouge et delta exact par rapport au Top-1 |
+| **TNR-26** | Extraction Trafilatura & Options (Phase 7) | Ingestion d'URL ou HTML avec bascule Précision / Rappel | Élimination totale du boilerplate sans couper le corps de l'article |
+| **TNR-27** | Nettoyage Déterministe (Phase 7) | Ingestion de texte corrompu (NFD, zero-width, balises) | Normalisation NFC, éradication des invisibles et condensation d'espaces vérifiée |
+| **TNR-28** | Chunking Multi-Stratégies (Phase 7) | Test comparatif Glissant vs Phrastique vs Markdown | Contrôle invariant overlap < size / 2 et maintien du contexte des phrases |
+| **TNR-29** | Dry-Run Pré-Indexation (Phase 7) | Simulation d'ingestion sur document avant vectorisation | Décompte exact des tokens, estimation VRAM pgvector et zéro injection prématurée |
+
+---
+
+## 5. Phase 7 — Pipeline d'Ingestion Avancé, Nettoyage & Expérience Visuelle [SPÉCIFICATION EXHAUSTIVE]
+
+### 5.1 Justification Métier, Diagnostic Architectural & Référence Technique
+L'analyse approfondie menée sur espace vierge et formalisée dans `architecture/specifications/referenceChunkEmbed.md` a mis en lumière des lacunes fonctionnelles critiques dans les interfaces RAG d'entreprise :
+1. **L'Ingestion "Boîte Noire"** : L'utilisateur téléverse un fichier sans aucun contrôle sur l'extraction, le nettoyage ou la stratégie de segmentation. Les bruits de structure (boilerplate web, menus, bannières) et les corruptions invisibles (Unicode NFD, zero-width spaces) polluent pgvector sans que l'auditeur ne puisse l'anticiper.
+2. **L'Indexation à l'Aveugle** : Aucune étape de prévisualisation ou de simulation (Dry-Run) n'est offerte avant l'écriture définitive en base, empêchant d'estimer le budget VRAM ou le nombre de tokens.
+3. **Le Manque de Granularité du Preset** : Le preset impose un découpage par fenêtre glissante fixe même sur des documents hautement structurés (articles Markdown, documentation technique avec titres hiérarchiques).
+4. **L'Opacité des Scores Cosinus** : Un score de similarité cosinus brut (ex: `0.843`) reste abstrait pour l'utilisateur sans repère visuel thermique, sans mise en relation avec le seuil minimal du preset et sans mesure de la chute de pertinence par rapport au meilleur chunk Top-1.
+
+Cette Phase 7 refond en profondeur les trois écrans opérationnels : **Chat RAG Sourcé**, **Ingestion et Jobs ARQ** et **Studio Preset RAG**.
+
+---
+
+### 5.2 Cartographie des Écrans Cibles & Formulaires Dynamiques
+
+#### 1. Écran « Chat RAG Sourcé » (`SourcedChatView.tsx`)
+* **Nouveautés Visuelles & Expérience Utilisateur :**
+  - **Badges de Citations Thermiques** : Chaque chip de citation `[Document, p.X]` sous la bulle de l'assistant intègre une pastille chromatique dynamique calculée d'après son score cosinus ($\ge 0.85$ : émeraude vif, $0.70 - 0.84$ : cyan/vert d'eau, $0.60 - 0.69$ : ambre chaleureux, $< 0.60$ : rose d'alerte).
+  - **Popover de Prévisualisation Cosinus au Survol** : En survolant le badge, une infobulle enrichie présente :
+    * Le score de similarité vectorielle (ex: `0.874`),
+    * Le niveau de confiance sémantique certifié (« Alignement sémantique excellent »),
+    * Le $\Delta$ Top-1 ($\text{score} - \text{score}_{\text{top1}}$, ex: `Top-1 (Référence)` ou `Δ = -0.042`),
+    * Le seuil minimal d'admissibilité du preset (ex: `Seuil preset: 0.700`).
+  - **Tiroir d'Inspection Latéral Enrichi (`ChunkInspectorDrawer.tsx`)** :
+    * Intégration du composant `VisualVectorSimilarityInspector` au sommet du panneau.
+    * **Réglette Thermique Linéaire** de 0.50 à 1.00 avec marqueur mobile de position du chunk, trait repère du Top-1 et zone hachurée rouge pour les scores sous le seuil d'exclusion.
+    * Badge de traçabilité de la stratégie de chunking ayant généré l'extrait (ex: `Stratégie : Sections Markdown` avec titre de section parent `[Section: Sécurité > Modèle de Menaces]`).
+
+#### 2. Écran « Ingestion et Jobs ARQ » (`DocumentIngestionView.tsx`)
+* **Nouveautés Visuelles & Expérience Utilisateur :**
+  - **Sélecteur de Source d'Ingestion (Mode Bi-Canal)** :
+    * *Mode Fichier Local* : Zone de glisser-déposer standard pour PDF, Markdown, TXT, SQL (max 25 Mo).
+    * *Mode Scraping URL Web (Trafilatura 2.0)* : Champ de saisie d'URL avec validation RFC, détection de schéma sécurisé (`http://` ou `https://`) et protection anti-SSRF.
+  - **Formulaire Dynamique d'Extraction Web (Trafilatura)** :
+    * Sélecteur de stratégie d'extraction :
+      - `Mode Précision` (Recommandé RAG) : Élimination heuristique intégrale du boilerplate (menus de navigation, formulaires de recherche, bannières cookies, pieds de page légaux).
+      - `Mode Rappel` : Extraction brute étendue pour wikis et documentations techniques complexes.
+    * Toggles d'options granulaires :
+      - `include_tables` (activé par défaut) : Extrait les tableaux HTML et les convertit en format Markdown tabulaire strict pour préserver la contextualité des cellules.
+      - `include_links` : Conserve les hyperliens textuels Markdown.
+      - `include_images_alt` : Injecte le texte alternatif des balises `<img>`.
+      - `extract_metadata` : Capture automatique du titre canonique, de l'auteur et de la date de publication.
+  - **Console Déroulante de Nettoyage Déterministe** :
+    * 4 commutateurs de filtrage mécanique :
+      1. *Normalisation Unicode NFC* (standardisation universelle des caractères composés et accents).
+      2. *Éradication des Caractères Invisibles* (purge stricte de `\u200B` à `\u200F`, `\uFEFF`, `\u00AD`).
+      3. *Assainissement des Balises HTML Résiduelles* (regex sélective préservant les symboles mathématiques `<` et les blocs de code).
+      4. *Normalisation Typographique des Espaces* (condensation des espaces multiples et réduction des sauts de ligne triples).
+    * Bouton « Inspecteur Diff A/B » : Ouvre un modal comparatif montrant le texte d'origine face au texte épuré avec décompte exact des invisibles retirés et des octets gagnés.
+  - **Simulateur Dry-Run Pré-Indexation** :
+    * Bouton « Simuler le découpage (Dry-Run) » : Exécute le pipeline en mémoire sans écrire dans PostgreSQL.
+    * Modal d'Audit Pré-Indexation :
+      - Métriques clés : Nombre total de chunks, compte estimé de tokens, consommation de mémoire VRAM pgvector HNSW estimée.
+      - Histogramme de distribution de la taille des chunks (min, médiane, max).
+      - Carrousel d'aperçu des 3 premiers chunks générés avec leur préfixe hiérarchique.
+  - **Déclenchement Sécurisé de l'Ingestion** :
+    * Bouton d'action « Lancer l'ingestion » transmettant l'ensemble des paramètres choisis au worker asynchrone ARQ avec suivi en direct de la barre d'avancement.
+
+#### 3. Écran « Studio Preset RAG » (`RagPresetStudioView.tsx`)
+* **Nouveautés Visuelles & Expérience Utilisateur :**
+  - **Sélecteur Multi-Stratégies de Chunking** :
+    * Menu déroulant ou cartes de sélection :
+      1. *Fenêtre Glissante (Tokens fixes)* :
+         - Champs affichés : Curseur `chunk_size` (128 à 2048 tokens), Curseur `chunk_overlap` (0 à 500 tokens).
+         - Invariant mathématique réactif : `chunk_overlap < chunk_size / 2` avec avertissement visuel `FormFieldFeedback` immédiat en cas de dépassement.
+      2. *Découpage par Phrases (Sentence Boundary)* :
+         - Champs affichés : Curseur `max_sentence_tokens` (128 à 1024 tokens), Toggle « Respecter les abréviations françaises » (M., Mme., Dr., ex., al.).
+         - Masquage automatique du curseur d'overlap fixe.
+      3. *Découpage par Sections Markdown* :
+         - Champs affichés : Sélecteur de profondeur de titres (`# H1`, `## H2`, `### H3`), Toggle « Préfixer automatiquement le titre de section au chunk » (`[Section > Sous-section]`), Curseur de sous-découpage si une section excède `max_tokens`.
+      4. *Chunking Sémantique Avancé* :
+         - Curseur de sensibilité au saut sémantique (seuil cosinus de rupture).
+  - **Simulateur Interactif de Similarité Cosinus** :
+    * Curseur de seuil minimal d'admissibilité (`similarity_threshold`, 0.50 à 0.95) couplé à un banc d'essai visuel.
+    * Affichage d'un échantillon de 4 chunks types avec jauges thermiques et calcul immédiat de leur inclusion ou exclusion selon le seuil sélectionné.
+  - **Garantie d'Immutabilité Conditionnelle TNR-18** :
+    * Domaine Vierge (0 doc) : Mode Édition Libre avec badge vert et sauvegarde active des hyperparamètres et de la stratégie.
+    * Domaine Alimenté ($\ge 1$ doc) : Verrouillage absolu (badge ambre 🔒 Scellé) avec infobulle pédagogique expliquant l'interdiction mathématique de modifier les paramètres sous peine d'invalider la comparabilité cosinus de l'espace vectoriel existant.
+
+---
+
+### 5.3 Spécification Formelle des User Stories de Phase 7
+
+#### US-FRONT-30 : Inspecteur Visuel de Similarité Vectorielle & Thermomètre Cosinus
+- **User Story :** En tant qu'auditeur, analyste métier ou data scientist, je veux visualiser immédiatement la proximité cosinus de chaque chunk cité grâce à une échelle thermique intuitive, un delta par rapport au Top-1 et une confrontation au seuil du preset, afin d'évaluer la fiabilité de la réponse sans calcul mental.
+- **Tâche PR :** `feat(ui-rag): visual vector similarity inspector with heat scale and top-1 delta gauge`
+- **Pattern & SOLID :** *Visual Indicator Component*, *Single Responsibility Principle*.
+- **Composants :**
+  - `src/components/v1/VisualVectorSimilarityInspector.tsx`
+  - `src/components/v1/CosineScoreBadge.tsx`
+- **Critères d'Acceptation :**
+  1. *Given* un chunk cité avec score cosinus de $0.874$ et un Top-1 à $0.920$, *When* l'utilisateur consulte le badge ou le tiroir d'inspection, *Then* le thermomètre affiche une coloration vert émeraude et le delta affiche exactement `Δ = -0.046`.
+  2. *Given* un chunk proche du seuil minimal (ex: $0.612$ pour seuil à $0.600$), *When* l'auditeur inspecte la jauge, *Then* le repère se positionne à la limite ambre avec avertissement de confiance modérée.
+  3. *Given* le survol d'une citation dans le chat, *Then* le popover s'ouvre sans latence avec le résumé des métriques cosinus.
+- **Tests Associés :**
+  - Unitaire : `visual-vector-similarity-inspector.test.tsx` (vérification des couleurs hex/classes tailwind selon les tranches de score).
+  - TNR : **TNR-25** (`tnr-cosine-similarity-visual-scale.test.ts`).
+
+#### US-FRONT-31 : Pipeline d'Extraction Web & Trafilatura Configurable
+- **User Story :** En tant qu'utilisateur ingérant des articles de presse, des textes de loi ou des documentations web, je veux renseigner une URL et paramétrer les options Trafilatura 2.0 (Précision vs Rappel, extraction de tableaux Markdown, images, métadonnées) afin d'importer un corpus épuré de tout bruit périphérique.
+- **Tâche PR :** `feat(ingestion-pipeline): configurable trafilatura extraction options and web URL scraper preview`
+- **Pattern & SOLID :** *Strategy Pattern* (`IContentExtractor`), *Adapter Pattern*.
+- **Composants :**
+  - `src/components/v1/WebUrlExtractionForm.tsx`
+- **Critères d'Acceptation :**
+  1. *Given* une URL saisie par l'utilisateur, *When* le protocole est `http://` ou `https://` valide, *Then* le bouton d'extraction s'active et les options s'affichent.
+  2. *Given* une tentative d'injection d'adresse privée (`http://192.168.1.1` ou `http://localhost:8000`), *Then* la validation anti-SSRF bloque la soumission avec un message de rejet explicite.
+  3. *Given* le mode `favor_precision` coché, *Then* les menus, encadrés publicitaires et pieds de page sont purgés et les tableaux HTML sont convertis en Markdown structuré.
+- **Tests Associés :**
+  - Unitaire : `web-url-extraction-form.test.tsx` (validation des URL, toggles d'options).
+  - TNR : **TNR-26** (`tnr-trafilatura-extraction-options.test.ts`).
+
+#### US-FRONT-32 : Console de Nettoyage & Normalisation Déterministe
+- **User Story :** En tant qu'ingénieur de données RAG, je veux activer les 4 filtres de nettoyage mécanique (Unicode NFC, éradication d'invisibles, purge balises HTML, normalisation d'espaces) et vérifier leur effet via un panneau comparatif avant/après en temps réel, afin de certifier l'hygiène du texte avant tokenisation.
+- **Tâche PR :** `feat(ingestion-cleaning): deterministic unicode NFC normalization and invisible characters sanitizer inspector`
+- **Pattern & SOLID :** *Pipeline Pattern*, *Interceptor Pattern*.
+- **Composants :**
+  - `src/components/v1/CleaningOptionsPanel.tsx`
+  - `src/components/v1/CleaningDiffModal.tsx`
+- **Critères d'Acceptation :**
+  1. *Given* un texte contenant des caractères zero-width space (`\u200B`) ou un BOM (`\uFEFF`), *When* le filtre d'invisibles est activé, *Then* ces caractères sont intégralement purgés et comptabilisés dans le diagnostic.
+  2. *Given* des formules mathématiques ou scientifiques contenant des symboles `<` (ex: `p < 0.05`), *When* le filtre de balises est appliqué, *Then* la formule n'est pas tronquée ni supprimée.
+  3. *Given* l'ouverture du modal Diff A/B, *Then* les modifications textuelles et les octets économisés s'affichent avec mise en valeur des zones corrigées.
+- **Tests Associés :**
+  - Unitaire : `cleaning-sanitizer.test.ts` (test exhaustif des 4 passes de nettoyage).
+  - TNR : **TNR-27** (`tnr-deterministic-cleaning-invisibles.test.ts`).
+
+#### US-FRONT-33 : Studio Multi-Stratégies de Chunking Documentaire
+- **User Story :** En tant que créateur ou administrateur de domaine, je veux sélectionner la stratégie de partitionnement la plus adaptée à la nature de mes documents (Glissante, Phrastique, Sections Markdown, Sémantique) et disposer de formulaires dynamiques contextualisés, afin d'optimiser la densité sémantique de chaque vecteur.
+- **Tâche PR :** `feat(studio-chunking): multi-strategy chunker selector (sliding window, sentence-boundary, markdown-sections)`
+- **Pattern & SOLID :** *Strategy Pattern*, *Factory Method Pattern*.
+- **Composants :**
+  - `src/components/v1/ChunkingStrategySelector.tsx`
+- **Critères d'Acceptation :**
+  1. *Given* la sélection de la stratégie « Sections Markdown », *When* l'option `prefix_section_title` est active, *Then* chaque chunk produit commence par le fil d'Ariane de son titre (ex: `[Titre > Sous-titre]`).
+  2. *Given* la stratégie « Fenêtre Glissante », *When* l'utilisateur tente de configurer un `chunk_overlap` supérieur ou égal à la moitié de `chunk_size`, *Then* la validation bloque la saisie avec message d'invariant `chunk_overlap < chunk_size / 2`.
+  3. *Given* un domaine comportant déjà des documents indexés ($\ge 1$), *When* l'utilisateur consulte le studio, *Then* la règle TNR-18 verrouille le formulaire en mode consultation immuable.
+- **Tests Associés :**
+  - Unitaire : `chunking-strategy-selector.test.tsx` (validation des transitions dynamiques d'options).
+  - TNR : **TNR-28** (`tnr-chunking-multistrategy-invariants.test.ts`), **TNR-30** (`tnr-contextual-header-prefixing.test.ts`).
+
+#### US-FRONT-34 : Diagnostic Pré-Indexation & Estimateur de Tokens / VRAM (Dry-Run)
+- **User Story :** En tant qu'administrateur système ou architecte d'infrastructure, je veux exécuter une simulation complète (Dry-Run) sur mon document pour auditer le partitionnement, la répartition des tokens et l'empreinte VRAM pgvector HNSW avant de déclencher la vectorisation définitive.
+- **Tâche PR :** `feat(ingestion-dryrun): pre-indexing dry-run simulator with token estimation and pgvector VRAM budget check`
+- **Pattern & SOLID :** *Command Pattern* (Simulation idempotente sans effet de bord).
+- **Composants :**
+  - `src/components/v1/PreIndexingDryRunModal.tsx`
+- **Critères d'Acceptation :**
+  1. *Given* un document soumis au Dry-Run, *When* le calcul s'exécute, *Then* aucune ligne n'est insérée dans `documents` ou `document_chunks` (zéro persistance).
+  2. *Given* 24 chunks de 512 tokens générés pour un modèle 768d, *Then* l'estimateur calcule l'empreinte mémoire exacte (vecteurs bruts : $24 \times 768 \times 4$ octets $\approx 73.7$ Ko + surcharge index HNSW $\approx 110$ Ko).
+  3. *Given* la visualisation des 3 premiers extraits dans le modal, *Then* l'utilisateur peut inspecter leur contenu exact et valider la cohérence avant validation finale.
+- **Tests Associés :**
+  - Unitaire : `pre-indexing-dry-run-modal.test.tsx` (calculs arithmétiques de budget VRAM, carrousel d'extraits).
+  - TNR : **TNR-29** (`tnr-pre-indexing-dryrun-isolation.test.ts`).
+
+#### US-FRONT-35 : Refonte Ergonomique du Studio Preset RAG, Presets Nommés par Domaine & Indication Visible dans le Chat RAG Sourcé
+- **User Story :** En tant qu'analyste ou auditeur RAG, je veux une présentation limpide et intuitive dans le Studio Preset (séparation explicite entre ce qui doit être identique comme l'Embedding, et ce qui peut varier au retrieval comme le Top-K, le seuil cosinus et le reranking), enregistrer librement des presets nommés au lieu de subir un versioning rigide v1/v2, choisir mon preset par défaut (les 3 presets types étant initialisés d'office avec « Équilibré et standard » par défaut lors de la création d'un domaine), et voir s'afficher clairement le preset retrieval sélectionné dans la console de Chat RAG Sourcé avec bascule rapide.
+- **Tâche PR :** `feat(studio-preset-ux): intuitive named preset management, default preset selection, simplified block hierarchy, and visible retrieval preset in sourced chat console`
+- **Pattern & SOLID :** *Strategy Pattern*, *Observer Pattern*, *Presenter Pattern*, *Separation of Concerns*.
+- **Composants :**
+  - `src/components/v1/RagPresetStudioView.tsx` :
+    - Refonte des blocs : « Presets disponibles pour ce domaine » avec badge « Par Défaut », sélection en 1 clic, duplication/chargement dans l'éditeur et suppression sécurisée.
+    - Bloc « Paramètres du modèle Retrieval » clarifié en 3 sections ordonnées :
+      1. *Modèle d'Embedding (Espace Vectoriel Fixé & Certifié)* : Explication claire de la contrainte mathématique d'identité stricte entre indexation et interrogation.
+      2. *Découpage Physique des Chunks (pgvector)* : Taille de chunk et chevauchement (verrouillé conditionnellement si des documents sont indexés - TNR-18).
+      3. *Hyperparamètres Flexibles de Recherche (Retrieval)* : Top-K adaptatif (1 à 12), Seuil cosinus minimal (0.50 à 0.95), Reranker BGE Cross-Encoder et option Parent-Child (Small-to-Big).
+    - Enregistrement flexible : « Sauvegarder les modifications », « Enregistrer comme nouveau preset » (nom personnalisé libre) et « Définir comme preset par défaut pour ce domaine ».
+  - `src/components/v1/SourcedChatView.tsx` :
+    - Encart interactif dédié dans la barre de contexte supérieure affichant en évidence le **Preset Retrieval Actif** : nom du preset, pastille de statut, métriques compactes (`Top-K • Seuil ≥ X.XX • Rerank`) et menu déroulant de bascule rapide en cours d'évaluation.
+- **Critères d'Acceptation :**
+  1. *Given* la création d'un nouveau domaine RAG, *Then* les 3 presets standards sont créés automatiquement (« Équilibré et standard », « Précis & Clauses Juridiques », « Macro-Contexte & Synthèse ») et « Équilibré et standard » est configuré par défaut (`is_active: true`).
+  2. *Given* plusieurs presets disponibles pour un domaine, *Then* l'utilisateur peut définir n'importe quel preset comme preset par défaut en 1 clic.
+  3. *Given* la console Chat RAG Sourcé, *Then* le preset de retrieval actif est visible immédiatement et l'utilisateur peut commuter de preset directement depuis la console sans repasser par le Studio.
+  4. *Given* l'enregistrement d'un preset, *Then* aucun suffixe automatique `v1, v2` n'est imposé, l'utilisateur nomme son preset de façon autonome.
+- **Tests Associés :**
+  - Unitaire : `rag-preset-studio-named-presets.test.tsx` (sauvegarde, choix par défaut, bascule).
+  - TNR : **TNR-31** (`tnr-named-preset-management-and-chat-indicator.test.ts`).
+
+---
+
+### 5.4 Matrice Complète des Tests de Non-Régression de Phase 7
+
+| Identifiant | Nom Technique | Périmètre | Règle d'Or Bloquante |
+|---|---|---|---|
+| **TNR-25** | `tnr-cosine-similarity-visual-scale.test.ts` | Écran Chat & Tiroir | La jauge thermique reproduit fidèlement la gradation mathématique du score cosinus (0.50 à 1.00), et $\Delta$ Top-1 est calculé avec 3 décimales sans distorsion visuelle. |
+| **TNR-26** | `tnr-trafilatura-extraction-options.test.ts` | Écran Ingestion | L'extraction Trafilatura en mode Précision filtre 100% du boilerplate sans tronquer le titre, le corps du texte ni les structures de tableaux Markdown. |
+| **TNR-27** | `tnr-deterministic-cleaning-invisibles.test.ts` | Écran Ingestion | La passe de nettoyage élimine les caractères corrupteurs (`\u200B-\u200F`, `\uFEFF`, `\u00AD`) et normalise en Unicode NFC sans jamais supprimer les formules mathématiques (ex: `x < y`). |
+| **TNR-28** | `tnr-chunking-multistrategy-invariants.test.ts` | Écran Studio Preset | L'invariant `chunk_overlap < chunk_size / 2` est respecté en glissant, et le découpage phrastique ne coupe jamais un mot ou une phrase en cours. |
+| **TNR-29** | `tnr-pre-indexing-dryrun-isolation.test.ts` | Écran Ingestion | L'exécution du Dry-Run n'effectue aucun `INSERT` en base de données et restitue l'estimation VRAM et tokens conforme aux formules théoriques. |
+| **TNR-30** | `tnr-contextual-header-prefixing.test.ts` | Écran Studio Preset | Les chunks segmentés par section Markdown reçoivent systématiquement le préfixe contextuel `[Section > Sous-titre]` sans dégrader le quota de tokens du corps. |
+| **TNR-31** | `tnr-named-preset-management-and-chat-indicator.test.ts` | Écran Studio Preset & Chat | Les 3 presets types sont initialisés à la création d'un domaine avec « Équilibré et standard » par défaut, la gestion des presets nommés s'effectue sans versioning rigide, et le preset actif est synchronisé et visible dans la console Chat. |
+
+
 

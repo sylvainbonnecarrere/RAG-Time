@@ -29,10 +29,28 @@ import {
   Activity,
 } from 'lucide-react';
 
-export const V1WorkspaceView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<
-    'chat' | 'documents' | 'presets' | 'audit' | 'telemetry' | 'tests'
-  >('chat');
+export type V1SubTab = 'chat' | 'documents' | 'presets' | 'audit' | 'telemetry' | 'tests';
+
+interface V1WorkspaceViewProps {
+  activeTab?: V1SubTab;
+  onTabChange?: (tab: V1SubTab) => void;
+}
+
+export const V1WorkspaceView: React.FC<V1WorkspaceViewProps> = ({
+  activeTab: controlledTab,
+  onTabChange,
+}) => {
+  const [localTab, setLocalTab] = useState<V1SubTab>('chat');
+  const activeTab = controlledTab !== undefined ? controlledTab : localTab;
+
+  const handleTabChange = (tab: V1SubTab) => {
+    if (onTabChange) {
+      onTabChange(tab);
+    } else {
+      setLocalTab(tab);
+    }
+  };
+
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [inspectedChunk, setInspectedChunk] = useState<MessageSourceDTO | null>(null);
 
@@ -46,7 +64,7 @@ export const V1WorkspaceView: React.FC = () => {
         {/* Ligne 1 : Navigation par onglets sur pleine largeur (aucun chevauchement) */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-zinc-800 scrollbar-thin">
           <button
-            onClick={() => setActiveTab('chat')}
+            onClick={() => handleTabChange('chat')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'chat'
                 ? 'bg-indigo-600 text-white shadow-md'
@@ -59,7 +77,7 @@ export const V1WorkspaceView: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setActiveTab('documents')}
+            onClick={() => handleTabChange('documents')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'documents'
                 ? 'bg-indigo-600 text-white shadow-md'
@@ -72,7 +90,7 @@ export const V1WorkspaceView: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setActiveTab('presets')}
+            onClick={() => handleTabChange('presets')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'presets'
                 ? 'bg-indigo-600 text-white shadow-md'
@@ -85,7 +103,7 @@ export const V1WorkspaceView: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setActiveTab('audit')}
+            onClick={() => handleTabChange('audit')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'audit'
                 ? 'bg-indigo-600 text-white shadow-md'
@@ -98,7 +116,7 @@ export const V1WorkspaceView: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setActiveTab('telemetry')}
+            onClick={() => handleTabChange('telemetry')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'telemetry'
                 ? 'bg-indigo-600 text-white shadow-md'
@@ -111,7 +129,7 @@ export const V1WorkspaceView: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setActiveTab('tests')}
+            onClick={() => handleTabChange('tests')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'tests'
                 ? 'bg-emerald-600 text-white shadow-md'
@@ -149,11 +167,13 @@ export const V1WorkspaceView: React.FC = () => {
         {activeTab === 'chat' && (
           <SourcedChatView
             onInspectChunk={(src) => setInspectedChunk(src)}
-            onNavigateToDocuments={() => setActiveTab('documents')}
+            onNavigateToDocuments={() => handleTabChange('documents')}
           />
         )}
 
-        {activeTab === 'documents' && <DocumentIngestionView />}
+        {activeTab === 'documents' && (
+          <DocumentIngestionView onNavigateToStudio={() => handleTabChange('presets')} />
+        )}
 
         {activeTab === 'presets' && (
           <RagPresetStudioView

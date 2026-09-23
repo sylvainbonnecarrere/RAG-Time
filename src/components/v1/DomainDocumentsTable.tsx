@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { DocumentDTO, DocumentType, TenantDTO, UUID } from '../../contracts/api-types';
-import { Eye, Trash2, Check, Copy } from 'lucide-react';
+import { Eye, Trash2, Check, Copy, Play } from 'lucide-react';
 import { useTablePagination } from '../../hooks/useTablePagination';
 import { TablePaginationBar, TableSortHeader, TableSearchBar } from './TablePaginationBar';
 
@@ -13,6 +13,7 @@ interface DomainDocumentsTableProps {
   copiedHash: string | null;
   onConsult: (doc: DocumentDTO) => void;
   onDelete: (doc: DocumentDTO, tenantId: UUID) => void;
+  onDryRun?: (doc: DocumentDTO) => void;
   tableIdPrefix?: string;
 }
 
@@ -25,6 +26,7 @@ export const DomainDocumentsTable: React.FC<DomainDocumentsTableProps> = ({
   copiedHash,
   onConsult,
   onDelete,
+  onDryRun,
   tableIdPrefix = 'domain-table',
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -184,6 +186,29 @@ export const DomainDocumentsTable: React.FC<DomainDocumentsTableProps> = ({
 
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1.5">
+                      {onDryRun && (
+                        <div className="relative group">
+                          <button
+                            type="button"
+                            onClick={() => onDryRun(doc)}
+                            className="px-2 py-1 rounded bg-zinc-800/80 hover:bg-zinc-700 text-indigo-300 text-xs font-medium border border-zinc-700/60 flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Essai à blanc (Dry-Run) : simuler le découpage en fragments sans modifier la base"
+                          >
+                            <Play className="w-3 h-3 text-indigo-400" />
+                            <span>Dry-Run</span>
+                          </button>
+                          {/* Infobulle tout public */}
+                          <div className="absolute right-0 bottom-full mb-1.5 hidden group-hover:flex flex-col w-56 p-2.5 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 pointer-events-none text-left animate-in fade-in-50 duration-150">
+                            <span className="text-[11px] font-semibold text-indigo-300">
+                              Essai à blanc (Dry-Run)
+                            </span>
+                            <span className="text-[10px] text-zinc-300 mt-0.5 leading-snug">
+                              Prévisualisez le découpage en fragments et l'empreinte mémoire sans impacter vos données réelles.
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => onConsult(doc)}

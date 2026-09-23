@@ -393,3 +393,222 @@ La règle d'immutabilité a été formalisée et clarifiée pour concilier **fle
    - L'agent sécurité doit valider qu'aucun token d'accès, clé API, adresse IP interne ou secret de session n'est injecté dans les métadonnées des exports.
 2. **Audit des Droits sur l'Historique de Conversation :**
    - L'historique stocké côté client est strictement isolé par `tenantId`. L'agent sécurité doit s'assurer que lors d'une déconnexion ou d'un changement de tenant, aucun échange du domaine précédent ne reste accessible dans le DOM ou dans les stores partagés.
+
+---
+
+## 10. Directives & Spécifications Phase 7 — Pipeline d'Ingestion Avancé, Nettoyage Déterministe & Expérience Visuelle
+
+### 10.1 Directives pour l'Agent Backend Python (FastAPI, Trafilatura & ARQ)
+
+#### 1. Endpoints FastAPI Requis pour le Pipeline d'Ingestion
+
+```python
+# 1. Extraction Web via Trafilatura 2.0
+@router.post("/api/v1/ingestion/extract-url", response_model=WebExtractionResponse)
+async def extract_web_url(payload: WebExtractionRequest, current_user: User = Depends(get_current_active_user)):
+    """
+    Télécharge et extrait le texte principal d'une page web via Trafilatura.
+    Applique le filtrage anti-SSRF strict (rejet des IP privées et schémas hors HTTP/HTTPS).
+    """
+    ...
+
+class WebExtractionRequest(BaseModel):
+    url: HttpUrl
+    mode: Literal["precision", "recall"] = "precision"
+    include_tables: bool = True
+    include_links: bool = False
+    include_images_alt: bool = True
+    extract_metadata: bool = True
+
+class WebExtractionResponse(BaseModel):
+    url: str
+    title: Optional[str]
+    author: Optional[str]
+    published_date: Optional[str]
+    cleaned_markdown: str
+    raw_char_count: int
+    extracted_char_count: int
+    boilerplate_ratio_removed: float # ex: 0.42 (42% de pub/menus supprimés)
+
+# 2. Prévisualisation & Diagnostic du Nettoyage Déterministe
+@router.post("/api/v1/ingestion/clean-preview", response_model=CleaningPreviewResponse)
+async def clean_preview(payload: CleaningPreviewRequest):
+    """
+    Applique les filtres de nettoyage choisis sur un échantillon de texte
+    et retourne le diff A/B ainsi que la comptabilisation des anomalies éradiquées.
+    """
+    ...
+
+class CleaningPreviewRequest(BaseModel):
+    raw_text: str
+    normalize_unicode_nfc: bool = True
+    strip_html_tags: bool = True
+    purge_invisible_chars: bool = True
+    normalize_whitespace: bool = True
+
+class CleaningPreviewResponse(BaseModel):
+    cleaned_text: str
+    original_length: int
+    cleaned_length: int
+    bytes_saved: int
+    invisibles_purged_count: int # zero-width spaces, BOM, etc.
+    html_tags_removed_count: int
+
+# 3. Simulation Dry-Run Pré-Indexation (Zéro Écriture SQL)
+@router.post("/api/v1/ingestion/dry-run", response_model=DryRunSimulationResponse)
+async def dry_run_chunking(payload: DryRunSimulationRequest):
+    """
+    Simule le chunking complet d'un document selon la stratégie spécifiée
+    sans insérer la moindre ligne dans PostgreSQL ni charger pgvector.
+    """
+    ...
+
+class DryRunSimulationRequest(BaseModel):
+    tenant_id: UUID
+    text: str
+    strategy: Literal["fixed_sliding", "sentence_boundary", "markdown_section", "semantic"]
+    chunk_size: int = 512
+    chunk_overlap: int = 64
+    max_sentence_tokens: int = 512
+    prefix_section_title: bool = True
+
+class DryRunChunkPreview(BaseModel):
+    index: int
+    context_prefix: Optional[str]
+    content_preview: str
+    token_count: int
+    character_count: int
+
+class DryRunSimulationResponse(BaseModel):
+    total_chunks: int
+    total_tokens: int
+    avg_chunk_tokens: float
+    min_chunk_tokens: int
+    max_chunk_tokens: int
+    estimated_vram_bytes: int # Formule : chunks * (768 * 4 + overhead_hnsw)
+    estimated_storage_kb: float
+    preview_chunks: List[DryRunChunkPreview] # 3 premiers chunks
+```
+
+#### 2. Évolution du Schéma Base de Données (Alembic)
+Les migrations doivent ajouter :
+- `documents.source_url` (TEXT, nullable),
+- `documents.extraction_method` (VARCHAR(64), default 'native_parser'),
+- `documents.cleaning_stats` (JSONB, default '{}'),
+- `document_chunks.strategy_used` (VARCHAR(32), default 'fixed_sliding'),
+- `document_chunks.section_title` (VARCHAR(255), nullable),
+- `document_chunks.context_prefix` (TEXT, nullable),
+- `rag_presets.chunking_strategy` (VARCHAR(32), default 'fixed_sliding'),
+- `rag_presets.prefix_section_title` (BOOLEAN, default TRUE).
+
+---
+
+### 10.2 Directives pour l'Agent Ingénieur IA / RAG
+
+1. **Multi-Stratégies de Chunking (`MultiStrategyChunkerPort`) :**
+   - *Fenêtre Glissante* : Respecter impérativement l'invariant mathématique `chunk_overlap < chunk_size / 2`.
+   - *Phrastique* : Ne jamais couper une phrase en son milieu ; bufferiser les phrases jusqu'au plafond `max_sentence_tokens` en tenant compte des abréviations courantes.
+   - *Sections Markdown* : Détecter les titres `#`, `##`, `###` et construire le chemin hiérarchique `[Section > Sous-section]`. Préfixer chaque chunk par cette chaîne pour maximiser la proximité sémantique lors de la recherche vectorielle.
+2. **Inspecteur Visuel de Similarité Cosinus :**
+   - Formule normalisée de similarité : $\text{cos}(\mathbf{u}, \mathbf{v}) = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\|_2 \|\mathbf{v}\|_2}$.
+   - Calibration de l'échelle thermique :
+     - $\ge 0.85$ : Vert émeraude (`#10b981`) -> Alignement exceptionnel.
+     - $0.70 - 0.84$ : Cyan / Vert d'eau (`#06b6d4`) -> Pertinence confirmée.
+     - $0.60 - 0.69$ : Ambre doux (`#f59e0b`) -> Contexte connexe / partiel.
+     - $< 0.60$ : Rose alerte (`#f43f5e`) -> Proche du plancher de rejet.
+   - Calcul du $\Delta$ Top-1 : $\Delta = \text{score}_{\text{chunk}} - \text{score}_{\text{top1}}$.
+
+---
+
+### 10.3 Directives pour l'Agent Frontend UX/UI
+
+1. **Formulaires Dynamiques Contextuels :**
+   - Adapter les champs affichés selon la stratégie ou la source choisie (masquer l'overlap en mode phrastique, afficher les toggles Trafilatura uniquement si source = URL Web).
+2. **Composants Réutilisables :**
+   - `VisualVectorSimilarityInspector` : composant autonome avec graduation 0.50 à 1.00, repère du Top-1 et zone de seuil.
+   - `CleaningDiffModal` et `PreIndexingDryRunModal` : modaux accessibles au clavier avec focus trap et feedback réactif.
+3. **Règle d'Or TNR-18 :**
+   - Toujours afficher le badge d'état du preset : `(Mode Édition Libre)` si `documents_count === 0`, ou `🔒 Preset Immuable (Scellé)` si `documents_count > 0`.
+
+---
+
+### 10.4 Directives pour l'Agent Sécurité Applicative
+
+1. **Validation Anti-SSRF :**
+   - Interdire formellement toute résolution vers `127.0.0.1`, plages privées RFC 1918 et métadonnées cloud (`169.254.169.254`).
+2. **Audit des Caractères Invisibles :**
+   - Vérifier que le sanitizer neutralise efficacement les attaques par injection de prompt cachée (*invisible prompt injection*).
+
+---
+
+## 11. Architecture & Décisions Structurantes Phase 8 (Embeddings, Découpage Dynamique & Isolation BDD)
+
+### 11.1 Décision d'Architecture : Base Unique Multi-Tenant (RLS) vs BDD par Utilisateur
+
+Une question architecturale cruciale a été arbitrée lors de la Phase 8 : **Faut-il provisionner une base de données PostgreSQL distincte pour chaque utilisateur ou regrouper tous les locataires sur une instance commune ?**
+
+#### Arbitrage RAGTIME : Base PostgreSQL Unique avec Cloisonnement Logique RLS
+* **Rejet de l'approche « Une BDD par utilisateur » :**
+  - Consommation excessive de mémoire vive (chaque instance PG + processus de travail réclame ~150-300 Mo de RAM).
+  - Gestion ingérable du pool de connexions (PgBouncer saturé par des milliers de bases distinctes).
+  - Complexité opérationnelle critique lors des migrations Alembic (nécessité de faire tourner les scripts de migration en boucle sur des centaines de bases).
+  - Incompatibilité avec l'hébergement souverain compact et maîtrisé en coûts.
+* **Adoption de la Base Unique Partagée avec Isolation Stricte (Row Level Security - RLS) :**
+  - **Identifiant Discriminant Obligatoire :** Chaque table (`tenants`, `documents`, `document_chunks`, `rag_presets`, `query_logs`) contient la colonne `tenant_id: UUID NOT NULL`.
+  - **Activation de la RLS PostgreSQL :**
+    ```sql
+    ALTER TABLE document_chunks ENABLE ROW LEVEL SECURITY;
+    CREATE POLICY tenant_isolation_policy ON document_chunks
+      USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+    ```
+  - **Index HNSW Vectoriel Partitionné :** Les index pgvector sont créés avec indexation composite ou filtrage direct sur `tenant_id` afin que la recherche cosinus dense ne parcoure que les vecteurs du tenant actif.
+
+---
+
+### 11.2 Choix du Modèle d'Embedding en Espace Vierge (US-FRONT-37)
+
+1. **Espace Vierge (`documents_count === 0`) :**
+   - L'utilisateur dispose de la pleine liberté de choisir son modèle d'embedding dans le Studio de Presets RAG ou lors de l'onboarding initial d'un nouveau domaine.
+   - Les modèles disponibles couvrent le spectre souverain et multilingue :
+     - `nomic-embed-text-v1.5` (768 dims, Matryoshka support, 8192 ctx)
+     - `bge-m3` (1024 dims, multilingue haute densité, dense+sparse)
+     - `text-embedding-3-small` (1536 dims, polyvalent)
+     - `all-MiniLM-L6-v2` (384 dims, ultra-léger CPU)
+2. **Scellement Vectoriel dès Ingestion (`documents_count > 0`) :**
+   - Dès qu'un premier document a été indexé dans le domaine, le modèle d'embedding est **scellé** pour préserver la cohérence dimensionnelle et topologique de l'espace vectoriel pgvector.
+   - Le sélecteur de modèle affiche un cadenas explicatif (`🔒 Modèle scellé`) invitant l'utilisateur soit à créer un nouveau domaine vierge, soit à purger les documents indexés pour re-vectoriser.
+
+---
+
+### 11.3 Découpage Dynamique des Chunks (US-FRONT-38)
+
+Le Studio de Presets RAG offre un formulaire adaptatif selon la stratégie de chunking choisie :
+
+| Stratégie | Description | Paramètres Dynamiques Exposés |
+|---|---|---|
+| **Fenêtre Glissante** (`fixed_sliding`) | Découpage par bloc fixe de tokens avec chevauchement régulier | `chunk_size` (128 à 2048 tok), `chunk_overlap` (0 à 500 tok) avec validation `overlap < size / 2`. |
+| **Phrastique Sémantique** (`sentence`) | Découpage respectant les frontières naturelles de phrases | `max_sentence_tokens` (64 à 512 tok), option `respect_abbreviations: true`, `overlap` masqué. |
+| **Sections Markdown** (`markdown_headers`) | Découpage sur les titres `#`, `##`, `###` avec préservation de hiérarchie | Niveau de titres cible (`H1..H4`), option `prefix_section_title: true` (injecte le fil d'Ariane contextuel). |
+
+---
+
+### 11.4 Synthèse des Presets RAG : Composant `PresetInfoModal` (US-FRONT-39)
+
+Afin de permettre une consultation rapide et pédagogique des spécifications d'un preset :
+- Un lien discret d'information `<Info className="w-3.5 h-3.5" />` est disponible sur chaque preset de la liste déroulante du Chat RAG et dans le Studio de Presets.
+- L'ouverture de `PresetInfoModal` affiche une vue synthétique :
+  - **Embedding** : Nom du modèle, dimensionnalité du vecteur, taille de contexte max.
+  - **Chunking** : Stratégie appliquée, taille de chunk / overlap, préfixe de section actif.
+  - **Retrieval & Rerank** : Seuil cosinus minimum, Top-K, état du cross-encoder reranker, prompt système configuré.
+  - **Statut d'immuabilité** : Indication claire si le preset est en mode édition libre ou scellé par des documents existants.
+
+---
+
+### 11.5 Référentiel Exhaustif des Fonctionnalités par Écran
+
+Pour une cartographie absolue et détaillée de chaque composant, bouton, modal et garde de sécurité sur les **6 écrans de Mon espace RAG** et les écrans périphériques, consulter impérativement :  
+➡️ **[`architecture/specifications/SPECIFICATION_FONCTIONNELLE_PAR_ECRAN.md`](../architecture/specifications/SPECIFICATION_FONCTIONNELLE_PAR_ECRAN.md)**.
+
+
+
+

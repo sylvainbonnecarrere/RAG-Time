@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   FolderOpen,
   Info,
+  HelpCircle,
 } from 'lucide-react';
 import { DocumentDTO, DocumentVersionDTO } from '../../contracts/api-types';
 
@@ -167,9 +168,15 @@ export const DocumentConsultModal: React.FC<DocumentConsultModalProps> = ({
 
           {activeTab === 'versions' && (
             <div className="space-y-3">
-              <p className="text-xs text-zinc-400">
-                L'historique des versions garantit l'immutabilité : chaque ré-upload incrémente le numéro de version avec son empreinte SHA-256 propre (TNR-03).
-              </p>
+              <div className="p-3 bg-indigo-950/40 border border-indigo-800/50 rounded-lg text-xs text-zinc-300 flex items-start gap-2.5">
+                <HelpCircle className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-indigo-300">Principe des versions immuables (v1, v2, v+1) :</strong>
+                  <p className="text-[11px] text-zinc-300 mt-0.5 leading-relaxed">
+                    Lorsque vous téléversez une mise à jour d'un document portant le même nom, le système ne remplace jamais le fichier d'origine : il crée automatiquement une révision suivante (<strong>v+1</strong>) dotée de sa propre empreinte numérique certifiée (SHA-256). Vous conservez ainsi un historique inaltérable et vérifiable.
+                  </p>
+                </div>
+              </div>
 
               <div className="divide-y divide-zinc-800 border border-zinc-800 rounded-lg overflow-hidden bg-zinc-950/40">
                 {document.versions.map((ver) => {

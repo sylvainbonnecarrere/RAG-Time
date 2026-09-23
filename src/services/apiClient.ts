@@ -49,6 +49,7 @@ export interface ApiClientPort {
     tenantId: UUID,
     preset: Omit<RagPresetDTO, 'id' | 'version' | 'created_at' | 'updated_at' | 'tenant_id'>
   ): Promise<RagPresetDTO>;
+  deletePreset(tenantId: UUID, presetId: UUID): Promise<void>;
 
   // Documents & Groupement par Domaine
   getDocuments(tenantId: UUID): Promise<DocumentDTO[]>;
@@ -675,12 +676,15 @@ export class MemoryApiClient implements ApiClientPort {
     domain_category: TenantDTO['domain_category'];
     description?: string;
     system_instructions?: string;
+    default_embedding_model?: string;
   }): Promise<TenantDTO> {
     const slug =
       data.name
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '') || 'rag-custom';
+
+    const selectedModel = data.default_embedding_model || 'nomic-embed-text-v1.5 (768d)';
 
     const newTenant: TenantDTO = {
       id: `t-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -691,6 +695,7 @@ export class MemoryApiClient implements ApiClientPort {
       description: data.description || `Espace dédié au domaine ${data.domain}.`,
       system_instructions:
         data.system_instructions || `Assistant spécialisé pour le domaine ${data.domain}.`,
+      default_embedding_model: selectedModel,
       created_at: new Date().toISOString(),
       is_active: true,
       role: 'owner',
@@ -699,8 +704,75 @@ export class MemoryApiClient implements ApiClientPort {
 
     this.tenants.push(newTenant);
     this.documents[newTenant.id] = [];
+    this.presets[newTenant.id] = this.createStandardPresets(newTenant.id, selectedModel);
     this.activeTenantId = newTenant.id;
     return newTenant;
+  }
+
+  // Initialiseur de Presets Standards (US-FRONT-35 & TNR-31 & US-FRONT-36)
+  private createStandardPresets(tenantId: UUID, embeddingModel = 'nomic-embed-text-v1.5 (768d)'): RagPresetDTO[] {
+    return [
+      {
+        id: `preset-${tenantId}-equilibre`,
+        tenant_id: tenantId,
+        name: 'Équilibré et standard',
+        version: 1,
+        is_active: true,
+        description: 'Configuration polyvalente recommandée pour ce domaine (512 tokens, seuil 0.70, reranking BGE activé).',
+        chunk_size: 512,
+        chunk_overlap: 64,
+        similarity_threshold: 0.70,
+        retrieval_top_k: 4,
+        reranking_enabled: true,
+        embedding_model: embeddingModel,
+        chunking_strategy: 'sliding_window',
+        tokenizer_family: 'cl100k_base',
+        word_boundary_trim: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: `preset-${tenantId}-precis`,
+        tenant_id: tenantId,
+        name: 'Précis & Clauses Juridiques',
+        version: 1,
+        is_active: false,
+        description: 'Segmentation fine à 256 tokens et seuil strict (0.78) pour contrats, clauses RGPD et réglementations.',
+        chunk_size: 256,
+        chunk_overlap: 32,
+        similarity_threshold: 0.78,
+        retrieval_top_k: 6,
+        reranking_enabled: true,
+        embedding_model: embeddingModel,
+        chunking_strategy: 'sentence_boundary',
+        sentences_per_chunk: 4,
+        sentence_overlap: 1,
+        respect_strong_punctuation: true,
+        preserve_abbreviations: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: `preset-${tenantId}-synthese`,
+        tenant_id: tenantId,
+        name: 'Macro-Contexte & Synthèse',
+        version: 1,
+        is_active: false,
+        description: 'Larges blocs de 1024 tokens et seuil permissif (0.65) pour résumés exécutifs, rapports stratégiques et wikis.',
+        chunk_size: 1024,
+        chunk_overlap: 128,
+        similarity_threshold: 0.65,
+        retrieval_top_k: 3,
+        reranking_enabled: false,
+        embedding_model: embeddingModel,
+        chunking_strategy: 'markdown_sections',
+        markdown_heading_levels: ['h1', 'h2'],
+        prefix_breadcrumbs: true,
+        protect_atomic_blocks: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ];
   }
 
   async updateTenant(tenantId: UUID, updates: Partial<TenantDTO>): Promise<TenantDTO> {
@@ -728,27 +800,10 @@ export class MemoryApiClient implements ApiClientPort {
     }
   }
 
-  // Presets RAG (US-FRONT-07 & TNR-05)
+  // Presets RAG (US-FRONT-07, US-FRONT-35 & TNR-31)
   async getPresets(tenantId: UUID): Promise<RagPresetDTO[]> {
-    if (!this.presets[tenantId]) {
-      this.presets[tenantId] = [
-        {
-          id: `preset-${tenantId}-01`,
-          tenant_id: tenantId,
-          name: 'Équilibré Standard',
-          version: 1,
-          is_active: true,
-          description: 'Configuration standard par défaut pour ce domaine.',
-          chunk_size: 512,
-          chunk_overlap: 64,
-          similarity_threshold: 0.70,
-          retrieval_top_k: 4,
-          reranking_enabled: true,
-          embedding_model: 'nomic-embed-text-v1.5 (768d)',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ];
+    if (!this.presets[tenantId] || this.presets[tenantId].length === 0) {
+      this.presets[tenantId] = this.createStandardPresets(tenantId);
     }
     return [...this.presets[tenantId]];
   }
@@ -770,6 +825,21 @@ export class MemoryApiClient implements ApiClientPort {
     });
     if (!target) throw new Error('Preset non trouvé');
     return target;
+  }
+
+  async deletePreset(tenantId: UUID, presetId: UUID): Promise<void> {
+    const list = await this.getPresets(tenantId);
+    if (list.length <= 1) {
+      throw new Error('Impossible de supprimer le seul preset disponible pour ce domaine.');
+    }
+    const index = list.findIndex((p) => p.id === presetId);
+    if (index === -1) throw new Error('Preset non trouvé');
+    const wasActive = list[index].is_active;
+    list.splice(index, 1);
+    if (wasActive && list.length > 0) {
+      list[0].is_active = true;
+    }
+    this.presets[tenantId] = list;
   }
 
   /**
@@ -1611,6 +1681,14 @@ export class FetchApiClient implements ApiClientPort {
     });
     if (!res.ok) throw new Error('Échec de la création du preset');
     return res.json();
+  }
+
+  async deletePreset(presetId: UUID): Promise<void> {
+    const res = await fetch(`${this.baseUrl}/presets/${presetId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    if (!res.ok) throw new Error('Échec de la suppression du preset');
   }
 
   async getTenantChunks(tenantId: UUID): Promise<MessageSourceDTO[]> {

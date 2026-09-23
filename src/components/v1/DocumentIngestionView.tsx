@@ -31,19 +31,37 @@ import {
   Info,
   Check,
   Copy,
+  Globe,
+  Play,
+  Sparkles,
+  Sliders,
+  Cpu,
+  Lock,
+  Unlock,
+  ExternalLink,
+  HelpCircle,
 } from 'lucide-react';
-import { DocumentDTO, DocumentType, TenantDTO, UUID } from '../../contracts/api-types';
+import { DocumentDTO, DocumentType, TenantDTO, UUID, RagPresetDTO } from '../../contracts/api-types';
+import { defaultApiClient } from '../../services/apiClient';
 import { DocumentConsultModal } from './DocumentConsultModal';
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
 import { DomainConfigModal } from './DomainConfigModal';
+import { PresetInfoModal } from './PresetInfoModal';
 import { validateDocumentUpload } from '../../lib/validation/schemas';
 import { FormFieldFeedback } from './FormFieldFeedback';
 import { DomainDocumentsTable } from './DomainDocumentsTable';
 import { useTablePagination } from '../../hooks/useTablePagination';
 import { TablePaginationBar, TableSortHeader } from './TablePaginationBar';
+import { WebUrlExtractionForm, ExtractedWebDocument, TrafilaturaOptions } from './WebUrlExtractionForm';
+import { CleaningOptionsPanel, CleaningOptions, cleanDocumentText } from './CleaningOptionsPanel';
+import { PreIndexingDryRunModal } from './PreIndexingDryRunModal';
 
-export const DocumentIngestionView: React.FC = () => {
-  const { activeTenant, tenants, switchTenant, tenantSwitchCount } = useTenant();
+export interface DocumentIngestionViewProps {
+  onNavigateToStudio?: () => void;
+}
+
+export const DocumentIngestionView: React.FC<DocumentIngestionViewProps> = ({ onNavigateToStudio }) => {
+  const { activeTenant, tenants, switchTenant, tenantSwitchCount, activePreset, presets, activatePreset } = useTenant();
   const {
     documents,
     groupedDocuments,
@@ -55,6 +73,11 @@ export const DocumentIngestionView: React.FC = () => {
     deleteDocumentVersion,
     clearError,
   } = useDocumentUploader(activeTenant?.id || null, tenantSwitchCount);
+
+  // Presets RAG du domaine cible et gestion du preset actif (US-FRONT-27-BIS)
+  const [targetDomainPresets, setTargetDomainPresets] = useState<RagPresetDTO[]>([]);
+  const [selectedPresetForInfo, setSelectedPresetForInfo] = useState<RagPresetDTO | null>(null);
+  const [isActivatingPreset, setIsActivatingPreset] = useState(false);
 
   // États locaux de navigation et filtres
   const [viewMode, setViewMode] = useState<'grouped' | 'active_only'>('grouped');
@@ -72,6 +95,22 @@ export const DocumentIngestionView: React.FC = () => {
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
   const [fileValidationError, setFileValidationError] = useState<string | null>(null);
 
+  // Onglet source d'ingestion : Fichiers locaux vs Extraction Web Trafilatura 2.0 (US-FRONT-31 & TNR-26)
+  const [uploadSourceTab, setUploadSourceTab] = useState<'files' | 'web'>('files');
+
+  // Options de nettoyage déterministe (US-FRONT-32 & TNR-27)
+  const [cleaningOptions, setCleaningOptions] = useState<CleaningOptions>({
+    unicode_nfc: true,
+    strip_invisibles: true,
+    strip_html: true,
+    normalize_whitespace: true,
+  });
+  const [isCleaningPanelOpen, setIsCleaningPanelOpen] = useState(false);
+
+  // État du simulateur Dry-Run Pré-Indexation (US-FRONT-34 & TNR-29)
+  const [isDryRunModalOpen, setIsDryRunModalOpen] = useState(false);
+  const [dryRunTargetDoc, setDryRunTargetDoc] = useState<{ title: string; content: string } | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Tenant effectif pour le téléversement (par défaut le tenant actif ou sélectionné)
@@ -81,6 +120,54 @@ export const DocumentIngestionView: React.FC = () => {
     }
     return activeTenant;
   }, [selectedDestinationTenantId, tenants, activeTenant]);
+
+  // Synchronisation des presets RAG selon le domaine cible (US-FRONT-27-BIS)
+  React.useEffect(() => {
+    if (!currentUploadTargetTenant) return;
+    if (currentUploadTargetTenant.id === activeTenant?.id) {
+      setTargetDomainPresets(presets);
+      return;
+    }
+    let isCancelled = false;
+    defaultApiClient
+      .getPresets(currentUploadTargetTenant.id)
+      .then((list) => {
+        if (!isCancelled) {
+          setTargetDomainPresets(list);
+        }
+      })
+      .catch((err) => {
+        console.error('Erreur chargement presets domaine cible:', err);
+      });
+    return () => {
+      isCancelled = true;
+    };
+  }, [currentUploadTargetTenant?.id, activeTenant?.id, presets]);
+
+  const effectiveActivePreset = useMemo(() => {
+    if (currentUploadTargetTenant?.id === activeTenant?.id) {
+      return activePreset || presets.find((p) => p.is_active) || presets[0] || null;
+    }
+    return targetDomainPresets.find((p) => p.is_active) || targetDomainPresets[0] || null;
+  }, [currentUploadTargetTenant?.id, activeTenant?.id, activePreset, presets, targetDomainPresets]);
+
+  const handleQuickActivatePreset = async (presetId: string) => {
+    setIsActivatingPreset(true);
+    try {
+      if (currentUploadTargetTenant?.id === activeTenant?.id) {
+        await activatePreset(presetId);
+      } else if (currentUploadTargetTenant) {
+        await defaultApiClient.activatePreset(currentUploadTargetTenant.id, presetId);
+        const updatedList = await defaultApiClient.getPresets(currentUploadTargetTenant.id);
+        setTargetDomainPresets(updatedList);
+      }
+      showNotification('Preset RAG d’ingestion mis à jour avec succès.');
+    } catch (err) {
+      console.error('Erreur activation preset:', err);
+    } finally {
+      setIsActivatingPreset(false);
+    }
+  };
 
   const handleCopyHash = (hash: string) => {
     navigator.clipboard.writeText(hash);
@@ -150,6 +237,36 @@ export const DocumentIngestionView: React.FC = () => {
   const showNotification = (msg: string) => {
     setActionSuccessMessage(msg);
     setTimeout(() => setActionSuccessMessage(null), 4000);
+  };
+
+  // Traitement d'un document extrait via Trafilatura 2.0 Web (US-FRONT-31 & TNR-26)
+  const handleWebDocumentExtracted = async (doc: ExtractedWebDocument, _options: TrafilaturaOptions) => {
+    const target = currentUploadTargetTenant || activeTenant;
+    // Appliquer le nettoyage déterministe avant la constitution du fichier
+    const cleaned = cleanDocumentText(doc.clean_markdown, cleaningOptions).cleanedText;
+    const safeTitle = (doc.title || 'Extraction_Web').replace(/[^a-zA-Z0-9_\-]/g, '_').slice(0, 50);
+    const filename = `${safeTitle}.md`;
+    const blob = new Blob([cleaned], { type: 'text/markdown' });
+    const file = new File([blob], filename, { type: 'text/markdown' });
+    await uploadFile(file, target?.id, target?.domain);
+    showNotification(`Page web "${doc.title}" extraite avec succès (Trafilatura 2.0) et indexée dans ${target?.domain}.`);
+  };
+
+  // Déclenchement de la simulation Dry-Run (US-FRONT-34 & TNR-29)
+  const handleOpenDryRun = (doc?: DocumentDTO) => {
+    const target = currentUploadTargetTenant || activeTenant;
+    if (doc) {
+      setDryRunTargetDoc({
+        title: doc.name,
+        content: doc.preview_content || `# Document ${doc.name}\n\nContenu indexé sous pgvector pour le domaine ${doc.domain_name || target?.domain || 'courant'}.`,
+      });
+    } else {
+      setDryRunTargetDoc({
+        title: `Simulation_DryRun_${target?.domain || 'Domaine'}`,
+        content: `# Référentiel Souverain - ${target?.domain || 'Domaine'}\n\n## 1. Introduction et Périmètre\nLe pipeline d'ingestion partitionne les documents en fragments homogènes de tokens avec un chevauchement calibré. Les métadonnées JSONB et les vecteurs 768d sont strictement isolés par tenant_id.\n\n## 2. Découpage et Normalisation\nL'algorithme de fenêtrage glissant respecte les frontières sémantiques et préserve le contexte documentaire. Chaque bloc reçoit un hash cryptographique SHA-256 inaltérable.\n\n## 3. Algorithme de Recherche Hybride\nLa recherche dense pgvector (HNSW distance cosinus) est combinée avec la recherche sparse BM25 via l'algorithme Reciprocal Rank Fusion (RRF k=60).`,
+      });
+    }
+    setIsDryRunModalOpen(true);
   };
 
   // Suppression confirmée d'un document
@@ -282,14 +399,73 @@ export const DocumentIngestionView: React.FC = () => {
             <span>Nouveau Domaine</span>
           </button>
 
-          <button
-            onClick={() => handleQuickDemoUpload('pdf', true)}
-            className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium border border-zinc-700/60 flex items-center gap-1.5 transition-colors"
-            title="Simuler l'ajout d'une révision v+1 sur un document existant"
-          >
-            <Plus className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Simuler v+1</span>
-          </button>
+          {/* Bouton Simulateur Dry-Run avec infobulle pédagogique grand public */}
+          <div className="relative group">
+            <button
+              type="button"
+              onClick={() => handleOpenDryRun()}
+              className="px-3 py-2 rounded-lg bg-indigo-950/70 hover:bg-indigo-900/80 text-indigo-300 text-xs font-semibold border border-indigo-700/60 flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+              id="btn-trigger-dry-run-header"
+              aria-describedby="tooltip-dry-run-header"
+            >
+              <Play className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Simulateur Dry-Run</span>
+              <HelpCircle className="w-3 h-3 text-indigo-400/80 group-hover:text-indigo-200 transition-colors" />
+            </button>
+
+            {/* Infobulle explicative tout public */}
+            <div
+              id="tooltip-dry-run-header"
+              role="tooltip"
+              className="absolute right-0 sm:right-auto sm:left-1/2 sm:-translate-x-1/2 top-full mt-2 hidden group-hover:flex flex-col w-72 p-3 bg-zinc-900 border border-indigo-500/40 rounded-xl shadow-xl z-50 pointer-events-none text-left animate-in fade-in-50 duration-150"
+            >
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-300 mb-1">
+                <Play className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Simulateur Dry-Run (Essai à blanc)</span>
+              </div>
+              <p className="text-[11px] text-zinc-300 leading-relaxed">
+                <strong>Testez sans risque :</strong> Découpe virtuellement un document en mémoire pour vérifier le nombre de fragments, la taille des morceaux et l'espace mémoire requis, <em>sans rien enregistrer</em> dans la base de données.
+              </p>
+              <div className="mt-2 pt-1.5 border-t border-zinc-800 text-[10px] text-emerald-400 font-medium flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" />
+                <span>100% virtuel • Zéro modification de vos données</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Bouton Simuler v+1 avec infobulle pédagogique */}
+          <div className="relative group">
+            <button
+              type="button"
+              onClick={() => handleQuickDemoUpload('pdf', true)}
+              className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium border border-zinc-700/60 flex items-center gap-1.5 transition-colors cursor-pointer"
+              id="btn-trigger-sim-vplus1"
+              aria-describedby="tooltip-sim-vplus1"
+            >
+              <Plus className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Simuler v+1</span>
+              <HelpCircle className="w-3 h-3 text-zinc-400 group-hover:text-zinc-200 transition-colors" />
+            </button>
+
+            {/* Infobulle explicative tout public */}
+            <div
+              id="tooltip-sim-vplus1"
+              role="tooltip"
+              className="absolute right-0 top-full mt-2 hidden group-hover:flex flex-col w-72 p-3 bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl z-50 pointer-events-none text-left animate-in fade-in-50 duration-150"
+            >
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-100 mb-1">
+                <Plus className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Simuler une révision (Version v+1)</span>
+              </div>
+              <p className="text-[11px] text-zinc-300 leading-relaxed">
+                <strong>Historique inaltérable :</strong> Crée une nouvelle version d'un document existant (ex: passage de v1 à v2) pour observer la gestion des versions sans jamais écraser ni perdre la version originale.
+              </p>
+              <div className="mt-2 pt-1.5 border-t border-zinc-800 text-[10px] text-indigo-300 font-medium flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3" />
+                <span>Garantie de traçabilité : aucun document n'est écrasé</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -309,16 +485,16 @@ export const DocumentIngestionView: React.FC = () => {
         </div>
       )}
 
-      {/* Erreurs de validation de fichier */}
+      {/* Erreurs de validation de fichier (TNR-19) */}
       {fileValidationError && (
-        <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-800/60 text-rose-300 text-xs flex items-center justify-between animate-in fade-in">
-          <div className="flex items-center gap-2.5">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-            <span>{fileValidationError}</span>
+        <div className="flex items-center justify-between p-3 rounded-xl bg-rose-950/40 border border-rose-800/60 animate-in fade-in">
+          <div className="flex-1">
+            <FormFieldFeedback id="file-upload-validation-error" error={fileValidationError} />
           </div>
           <button
+            type="button"
             onClick={() => setFileValidationError(null)}
-            className="text-xs font-semibold hover:underline text-rose-200"
+            className="text-xs font-semibold hover:underline text-rose-200 ml-3 cursor-pointer shrink-0"
           >
             Fermer
           </button>
@@ -327,19 +503,195 @@ export const DocumentIngestionView: React.FC = () => {
 
       {/* Erreur de validation backend */}
       {uploadError && (
-        <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-800/60 text-rose-300 text-xs flex items-center justify-between animate-in fade-in">
-          <div className="flex items-center gap-2.5">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-            <span>{uploadError}</span>
+        <div className="flex items-center justify-between p-3 rounded-xl bg-rose-950/40 border border-rose-800/60 animate-in fade-in">
+          <div className="flex-1">
+            <FormFieldFeedback id="file-upload-backend-error" error={uploadError} />
           </div>
           <button
+            type="button"
             onClick={clearError}
-            className="text-xs font-semibold hover:underline text-rose-200"
+            className="text-xs font-semibold hover:underline text-rose-200 ml-3 cursor-pointer shrink-0"
           >
             Fermer
           </button>
         </div>
       )}
+
+      {/* Bannière d'Affichage Explicite du Preset RAG Actif & Paramètres de Vectorisation (US-FRONT-27-BIS) */}
+      <div className="bg-[#121214] border border-indigo-900/60 rounded-xl p-5 shadow-lg relative overflow-hidden">
+        {/* Lueur d'ambiance subtile */}
+        <div className="absolute top-0 right-0 w-96 h-32 bg-indigo-600/5 blur-3xl pointer-events-none" />
+
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-zinc-800/80">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-indigo-950/80 border border-indigo-800/60 flex items-center justify-center shrink-0 shadow-inner">
+              <Sliders className="w-4 h-4 text-indigo-400" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-zinc-100">
+                  Configuration RAG Appliquée à l'Ingestion
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-950/80 border border-indigo-800/60 text-indigo-300 font-medium">
+                  {currentUploadTargetTenant?.domain || 'Domaine actif'}
+                </span>
+                {effectiveActivePreset && (
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-800/50 text-emerald-300 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Preset : {effectiveActivePreset.name} (v{effectiveActivePreset.version})
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-zinc-400 mt-0.5">
+                Ces hyperparamètres régissent le découpage en fragments, le modèle d'embedding et l'indexation pgvector de tous les documents importés dans ce domaine.
+              </p>
+            </div>
+          </div>
+
+          {/* Actions & Sélecteur rapide si plusieurs presets */}
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {targetDomainPresets.length > 1 && (
+              <div className="flex items-center gap-1.5 bg-zinc-900/90 border border-zinc-700/80 rounded-lg px-2.5 py-1">
+                <label className="text-[11px] text-zinc-400 font-medium">Bascule :</label>
+                <select
+                  value={effectiveActivePreset?.id || ''}
+                  onChange={(e) => handleQuickActivatePreset(e.target.value)}
+                  disabled={isActivatingPreset}
+                  className="bg-transparent text-xs text-zinc-200 font-medium focus:outline-none cursor-pointer"
+                >
+                  {targetDomainPresets.map((p) => (
+                    <option key={p.id} value={p.id} className="bg-zinc-900 text-zinc-200">
+                      {p.name} (v{p.version}) {p.is_active ? '★ Actif' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {effectiveActivePreset && (
+              <button
+                type="button"
+                onClick={() => setSelectedPresetForInfo(effectiveActivePreset)}
+                className="px-2.5 py-1.5 rounded-lg bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 hover:text-zinc-100 text-xs font-medium border border-zinc-700/70 flex items-center gap-1.5 transition-colors"
+                title="Consulter la fiche technique exhaustive du preset"
+              >
+                <Info className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Fiche Technique</span>
+              </button>
+            )}
+
+            {onNavigateToStudio && (
+              <button
+                type="button"
+                onClick={onNavigateToStudio}
+                className="px-3 py-1.5 rounded-lg bg-indigo-950/70 hover:bg-indigo-900/80 text-indigo-300 hover:text-indigo-200 text-xs font-semibold border border-indigo-700/60 flex items-center gap-1.5 transition-colors"
+                title="Accéder au Studio Presets RAG pour modifier ou créer des presets"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Gérer dans le Studio</span>
+                <ExternalLink className="w-3 h-3 text-indigo-400" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Grille des 4 Métriques Synthétiques du Preset */}
+        {effectiveActivePreset ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-4">
+            {/* 1. Embedding */}
+            <div className="bg-zinc-900/70 border border-zinc-800/80 rounded-lg p-3">
+              <div className="flex items-center justify-between text-zinc-400 text-[11px] font-medium">
+                <span className="flex items-center gap-1.5">
+                  <Cpu className="w-3.5 h-3.5 text-indigo-400" />
+                  Modèle d'Embedding
+                </span>
+                <span className="text-[10px] text-zinc-500 font-mono">pgvector</span>
+              </div>
+              <div className="mt-1.5 text-xs font-semibold text-zinc-100 truncate" title={effectiveActivePreset.embedding_model}>
+                {effectiveActivePreset.embedding_model}
+              </div>
+              <div className="mt-1 text-[10px] text-indigo-300 font-mono flex items-center gap-1">
+                <span>768 dimensions</span>
+                <span>•</span>
+                <span>Cosine Distance</span>
+              </div>
+            </div>
+
+            {/* 2. Segmentation & Stratégie */}
+            <div className="bg-zinc-900/70 border border-zinc-800/80 rounded-lg p-3">
+              <div className="flex items-center justify-between text-zinc-400 text-[11px] font-medium">
+                <span className="flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                  Stratégie de Chunking
+                </span>
+                <span className="text-[10px] text-zinc-500 font-mono">ARQ Worker</span>
+              </div>
+              <div className="mt-1.5 text-xs font-semibold text-zinc-100">
+                {effectiveActivePreset.chunking_strategy === 'sentence_boundary'
+                  ? 'Phrastique Grammatical'
+                  : effectiveActivePreset.chunking_strategy === 'markdown_sections'
+                  ? 'Sections Markdown AST'
+                  : 'Fenêtre Glissante'}
+              </div>
+              <div className="mt-1 text-[10px] text-zinc-400 font-mono">
+                Taille : <span className="text-zinc-200">{effectiveActivePreset.chunk_size} tok</span> | Recouvrement : <span className="text-zinc-200">{effectiveActivePreset.chunk_overlap} tok</span>
+              </div>
+            </div>
+
+            {/* 3. Retrieval & Seuil */}
+            <div className="bg-zinc-900/70 border border-zinc-800/80 rounded-lg p-3">
+              <div className="flex items-center justify-between text-zinc-400 text-[11px] font-medium">
+                <span className="flex items-center gap-1.5">
+                  <Search className="w-3.5 h-3.5 text-indigo-400" />
+                  Seuil Cosinus & Retrieval
+                </span>
+                <span className="text-[10px] text-zinc-500 font-mono">Top-K</span>
+              </div>
+              <div className="mt-1.5 text-xs font-semibold text-zinc-100">
+                Seuil min : ≥ {effectiveActivePreset.similarity_threshold.toFixed(2)}
+              </div>
+              <div className="mt-1 text-[10px] text-zinc-400 font-mono flex items-center gap-1">
+                <span>Top-{effectiveActivePreset.retrieval_top_k} Chunks</span>
+                <span>•</span>
+                <span className={effectiveActivePreset.reranking_enabled ? 'text-emerald-400' : 'text-zinc-500'}>
+                  {effectiveActivePreset.reranking_enabled ? 'Reranker BGE actif' : 'Dense seul'}
+                </span>
+              </div>
+            </div>
+
+            {/* 4. Statut d'Immutabilité */}
+            <div className="bg-zinc-900/70 border border-zinc-800/80 rounded-lg p-3">
+              <div className="flex items-center justify-between text-zinc-400 text-[11px] font-medium">
+                <span className="flex items-center gap-1.5">
+                  {(currentUploadTargetTenant?.documents_count ?? 0) > 0 ? (
+                    <Lock className="w-3.5 h-3.5 text-amber-400" />
+                  ) : (
+                    <Unlock className="w-3.5 h-3.5 text-emerald-400" />
+                  )}
+                  Statut de l'Espace
+                </span>
+                <span className="text-[10px] text-zinc-500 font-mono">TNR-18</span>
+              </div>
+              <div className="mt-1.5 text-xs font-semibold text-zinc-100 flex items-center gap-1.5">
+                {(currentUploadTargetTenant?.documents_count ?? 0) > 0 ? (
+                  <span className="text-amber-300">🔒 Espace Scellé</span>
+                ) : (
+                  <span className="text-emerald-300">🔓 Espace Vierge</span>
+                )}
+              </div>
+              <div className="mt-1 text-[10px] text-zinc-400 leading-tight">
+                {(currentUploadTargetTenant?.documents_count ?? 0) > 0
+                  ? `${currentUploadTargetTenant?.documents_count} doc(s) indexé(s) - Modèle & chunks figés.`
+                  : 'Aucun document - Configuration modifiable.'}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="pt-4 text-xs text-zinc-400 italic">
+            Aucun preset RAG configuré pour ce domaine. Rendez-vous dans le Studio Presets RAG pour initialiser la configuration.
+          </div>
+        )}
+      </div>
 
       {/* Zone de Téléversement avec Sélection du Domaine Cible */}
       <div className="bg-[#121214] border border-zinc-800/80 rounded-xl p-5 space-y-4">
@@ -367,72 +719,149 @@ export const DocumentIngestionView: React.FC = () => {
           </div>
         </div>
 
-        {/* Drag & Drop Card */}
-        <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-7 text-center cursor-pointer transition-all ${
-            isDragging
-              ? 'border-indigo-500 bg-indigo-950/20 scale-[0.99]'
-              : 'border-zinc-800 hover:border-zinc-700 bg-zinc-900/30'
-          }`}
-        >
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            accept=".pdf,.md,.markdown,.sql"
-            className="hidden"
-          />
-          <div className="w-12 h-12 rounded-full bg-indigo-950/60 border border-indigo-800/50 flex items-center justify-center mx-auto mb-3 text-indigo-400">
-            <UploadCloud className="w-6 h-6" />
+        {/* Sélecteur de méthode d'ingestion & Panneau de Nettoyage (US-FRONT-31 & US-FRONT-32) */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <div className="flex items-center gap-1.5 p-1 bg-zinc-900/90 border border-zinc-800 rounded-lg">
+            <button
+              type="button"
+              onClick={() => setUploadSourceTab('files')}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                uploadSourceTab === 'files'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+              id="tab-upload-files"
+            >
+              <UploadCloud className="w-3.5 h-3.5" />
+              <span>Fichiers Locaux (PDF, MD, SQL)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setUploadSourceTab('web')}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                uploadSourceTab === 'web'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+              id="tab-web-trafilatura"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>Extraction Web (Trafilatura 2.0)</span>
+              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-indigo-950/80 border border-indigo-700/60 text-indigo-300">
+                Anti-SSRF
+              </span>
+            </button>
           </div>
-          <div className="text-sm font-medium text-zinc-200">
-            Glissez-déposez vos fichiers pour{' '}
-            <span className="text-indigo-400 font-semibold underline">
-              {currentUploadTargetTenant?.domain || activeTenant?.domain}
+
+          <button
+            type="button"
+            onClick={() => setIsCleaningPanelOpen(!isCleaningPanelOpen)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-colors ${
+              isCleaningPanelOpen
+                ? 'bg-emerald-950/70 border-emerald-800/80 text-emerald-300'
+                : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200'
+            }`}
+            id="btn-toggle-cleaning-panel"
+            title="Activer ou désactiver les 4 filtres de normalisation et nettoyage déterministe"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Filtres de Nettoyage Déterministe</span>
+            <span className="text-[10px] font-mono text-emerald-400">
+              ({Object.values(cleaningOptions).filter(Boolean).length}/4)
             </span>
-            , ou parcourez
-          </div>
-          <p className="text-xs text-zinc-400 mt-1">
-            Formats acceptés : PDF, Markdown (.md), SQL — Limite : 20 Mo par document.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-4 mt-3 text-[11px] text-zinc-400">
-            <span className="flex items-center gap-1 text-emerald-400">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Calcul SHA-256 client immédiat
-            </span>
-            <span>•</span>
-            <span className="text-indigo-400">Versioning immuable (v1, v2, ...)</span>
-            <span>•</span>
-            <span>Isolation pgvector hermétique</span>
-          </div>
+          </button>
         </div>
 
-        {/* Boutons de test rapide */}
-        <div className="flex flex-wrap items-center justify-end gap-2 pt-1 text-xs">
-          <span className="text-[11px] text-zinc-400">Tests rapides :</span>
-          <button
-            onClick={() => handleQuickDemoUpload('pdf', false)}
-            className="px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition-colors text-[11px]"
-          >
-            + Démo PDF
-          </button>
-          <button
-            onClick={() => handleQuickDemoUpload('md', false)}
-            className="px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition-colors text-[11px]"
-          >
-            + Démo Markdown
-          </button>
-          <button
-            onClick={() => handleQuickDemoUpload('sql', false)}
-            className="px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition-colors text-[11px]"
-          >
-            + Démo SQL
-          </button>
-        </div>
+        {/* Panneau de Nettoyage Déterministe Dépliable (US-FRONT-32 & TNR-27) */}
+        {isCleaningPanelOpen && (
+          <div className="pt-2 animate-in fade-in-50 duration-200">
+            <CleaningOptionsPanel
+              options={cleaningOptions}
+              onChange={setCleaningOptions}
+            />
+          </div>
+        )}
+
+        {/* Contenu selon l'onglet actif : Fichiers Locaux vs Web Trafilatura */}
+        {uploadSourceTab === 'files' ? (
+          <>
+            {/* Drag & Drop Card */}
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`border-2 border-dashed rounded-xl p-7 text-center cursor-pointer transition-all ${
+                isDragging
+                  ? 'border-indigo-500 bg-indigo-950/20 scale-[0.99]'
+                  : 'border-zinc-800 hover:border-zinc-700 bg-zinc-900/30'
+              }`}
+            >
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept=".pdf,.md,.markdown,.sql"
+                className="hidden"
+              />
+              <div className="w-12 h-12 rounded-full bg-indigo-950/60 border border-indigo-800/50 flex items-center justify-center mx-auto mb-3 text-indigo-400">
+                <UploadCloud className="w-6 h-6" />
+              </div>
+              <div className="text-sm font-medium text-zinc-200">
+                Glissez-déposez vos fichiers pour{' '}
+                <span className="text-indigo-400 font-semibold underline">
+                  {currentUploadTargetTenant?.domain || activeTenant?.domain}
+                </span>
+                , ou parcourez
+              </div>
+              <p className="text-xs text-zinc-400 mt-1">
+                Formats acceptés : PDF, Markdown (.md), SQL — Limite : 20 Mo par document.
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-4 mt-3 text-[11px] text-zinc-400">
+                <span className="flex items-center gap-1 text-emerald-400">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Calcul SHA-256 client immédiat
+                </span>
+                <span>•</span>
+                <span className="text-indigo-400">Versioning immuable (v1, v2, ...)</span>
+                <span>•</span>
+                <span>Isolation pgvector hermétique</span>
+              </div>
+            </div>
+
+            {/* Boutons de test rapide */}
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-1 text-xs">
+              <span className="text-[11px] text-zinc-400">Tests rapides :</span>
+              <button
+                onClick={() => handleQuickDemoUpload('pdf', false)}
+                className="px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition-colors text-[11px]"
+              >
+                + Démo PDF
+              </button>
+              <button
+                onClick={() => handleQuickDemoUpload('md', false)}
+                className="px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition-colors text-[11px]"
+              >
+                + Démo Markdown
+              </button>
+              <button
+                onClick={() => handleQuickDemoUpload('sql', false)}
+                className="px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition-colors text-[11px]"
+              >
+                + Démo SQL
+              </button>
+            </div>
+          </>
+        ) : (
+          /* Module d'Extraction Web Trafilatura 2.0 (US-FRONT-31 & TNR-26) */
+          <div className="pt-2 animate-in fade-in-50 duration-200">
+            <WebUrlExtractionForm
+              onDocumentExtracted={handleWebDocumentExtracted}
+              disabled={isLoading}
+            />
+          </div>
+        )}
       </div>
 
       {/* Suivi des Jobs ARQ (Temps Réel) */}
@@ -609,6 +1038,7 @@ export const DocumentIngestionView: React.FC = () => {
                     copiedHash={copiedHash}
                     onConsult={(doc) => setConsultingDoc(doc)}
                     onDelete={(doc, tenantId) => setDocToDelete({ doc, tenantId })}
+                    onDryRun={handleOpenDryRun}
                     tableIdPrefix="grouped-table"
                   />
                 </div>
@@ -744,6 +1174,27 @@ export const DocumentIngestionView: React.FC = () => {
 
                           <td className="py-3 px-4 text-right">
                             <div className="flex items-center justify-end gap-1.5">
+                              <div className="relative group">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenDryRun(doc)}
+                                  className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-indigo-300 text-xs font-medium border border-zinc-700/60 flex items-center gap-1 transition-colors cursor-pointer"
+                                  title="Essai à blanc (Dry-Run) : simuler le découpage en fragments sans modifier la base"
+                                >
+                                  <Play className="w-3 h-3 text-indigo-400" />
+                                  <span>Dry-Run</span>
+                                </button>
+                                {/* Infobulle tout public */}
+                                <div className="absolute right-0 bottom-full mb-1.5 hidden group-hover:flex flex-col w-56 p-2.5 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 pointer-events-none text-left animate-in fade-in-50 duration-150">
+                                  <span className="text-[11px] font-semibold text-indigo-300">
+                                    Essai à blanc (Dry-Run)
+                                  </span>
+                                  <span className="text-[10px] text-zinc-300 mt-0.5 leading-snug">
+                                    Prévisualisez le découpage en fragments et l'empreinte mémoire sans impacter vos données réelles.
+                                  </span>
+                                </div>
+                              </div>
+
                               <button
                                 type="button"
                                 onClick={() => setConsultingDoc(doc)}
@@ -816,6 +1267,34 @@ export const DocumentIngestionView: React.FC = () => {
         isOpen={isDomainModalOpen}
         onClose={() => setIsDomainModalOpen(false)}
         initialMode="create"
+      />
+
+      {/* Modal de Simulation Pré-Indexation (Dry-Run) & Estimateur VRAM (US-FRONT-34 & TNR-29) */}
+      <PreIndexingDryRunModal
+        isOpen={isDryRunModalOpen}
+        onClose={() => setIsDryRunModalOpen(false)}
+        documentTitle={dryRunTargetDoc?.title || 'Document_Test'}
+        documentContent={dryRunTargetDoc?.content || ''}
+        chunkSize={effectiveActivePreset?.chunk_size || 512}
+        chunkOverlap={effectiveActivePreset?.chunk_overlap || 64}
+        strategy={
+          effectiveActivePreset?.chunking_strategy === 'sentence_boundary'
+            ? 'sentence'
+            : effectiveActivePreset?.chunking_strategy === 'markdown_sections'
+            ? 'markdown'
+            : 'sliding_window'
+        }
+        onConfirmIndex={() => {
+          setIsDryRunModalOpen(false);
+          showNotification('Simulation validée. Paramètres de découpage vérifiés en mémoire.');
+        }}
+      />
+
+      {/* Modal de Fiche Technique Preset RAG (US-FRONT-27-BIS) */}
+      <PresetInfoModal
+        isOpen={selectedPresetForInfo !== null}
+        preset={selectedPresetForInfo}
+        onClose={() => setSelectedPresetForInfo(null)}
       />
     </div>
   );

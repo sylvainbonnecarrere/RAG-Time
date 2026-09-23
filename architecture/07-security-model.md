@@ -67,3 +67,31 @@ L'étanchéité absolue entre domaines (tenants) est garantie à trois niveaux d
 [Ollama / Llama 3.2]
    (Prompt isolé contenant uniquement les chunks du tenant validé)
 ```
+
+---
+
+## 5. Sécurité du Pipeline d'Ingestion Documentaire & Scraping Web (Phase 7)
+
+### 5.1 Prévention Anti-SSRF (Server-Side Request Forgery) sur l'Extracteur Web
+Lorsqu'un utilisateur soumet une URL pour ingestion via Trafilatura 2.0 :
+1. **Validation Stricte du Schéma** : Seuls les protocoles `http://` et `https://` sont autorisés. Les schémas non sécurisés ou locaux (`file://`, `gopher://`, `ftp://`, `data:`) sont rejetés immédiatement avec message explicite.
+2. **Filtrage des Adresses IP Privées & Résolution DNS Sécurisée** :
+   - Interdiction formelle d'atteindre le réseau interne ou les interfaces loopback :
+     - `127.0.0.0/8` et `::1` (Loopback / Localhost)
+     - `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` (Réseaux Privés RFC 1918)
+     - `169.254.0.0/16` (Adresses Lien-Local & métadonnées Cloud AWS/GCP/Azure)
+   - Résolution DNS préalable avec contrôle de l'adresse IP cible avant tout appel socket pour contrer le DNS Rebinding.
+3. **Quotas & Timeouts d'Extraction** :
+   - Timeout réseau strict : 10 secondes maximum par requête HTTP.
+   - Taille maximale du corps HTML brut téléchargé : 10 Mo (protection anti-DoS et bombes de décompression).
+   - Suivi des redirections plafonné à 3 sauts maximum avec ré-évaluation anti-SSRF à chaque saut.
+
+### 5.2 Neutralisation des Injections Cachées par Caractères Invisibles (Prompt Injection Masquée)
+Les documents ou pages web peuvent contenir des attaques par dissimulation sémantique exploitant des caractères Unicode de largeur nulle (*zero-width characters*) ou des homoglyphes pour injecter des consignes malveillantes invisibles pour l'auditeur humain mais interprétées par le tokenizer du LLM.
+- **Contre-mesure déterministe (`TextSanitizerPort`)** :
+  - Purge mécanique et inconditionnelle des plages `\u200B` à `\u200F`, `\u202A` à `\u202E`, `\uFEFF` (BOM), `\u00AD` (soft hyphen).
+  - Traçabilité dans `cleaning_stats` : nombre exact de caractères invisibles neutralisés stocké dans la base PostgreSQL pour audit de sécurité.
+
+### 5.3 Préservation de l'Équilibre Mathématique Vectoriel (Règle d'Or TNR-18)
+- Toute modification des hyperparamètres d'un preset vectoriel (taille de chunk, modèle d'embedding) sur un espace contenant déjà des vecteurs invaliderait rétroactivement la comparabilité des distances cosinus.
+- Le scellement immuable strict garanti par TNR-18 protège l'intégrité de l'espace vectoriel et assure qu'aucune régression silencieuse ne puisse survenir sur les scores de similarité certifiés.

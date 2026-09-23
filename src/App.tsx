@@ -6,7 +6,7 @@ import { HeroSection } from './components/HeroSection';
 import { BentoGrid } from './components/BentoGrid';
 import { FrontendProposalView } from './components/FrontendProposalView';
 import { InteractiveConsoleDemo } from './components/InteractiveConsoleDemo';
-import { V1WorkspaceView } from './components/v1/V1WorkspaceView';
+import { V1WorkspaceView, V1SubTab } from './components/v1/V1WorkspaceView';
 import { AuthLoginView } from './components/v1/AuthLoginView';
 import { CitationModal } from './components/CitationModal';
 import { Footer } from './components/Footer';
@@ -16,15 +16,22 @@ import { MOCK_CITATIONS } from './data/mockRagData';
 function AppContent() {
   const { isAuthenticated } = useAuth();
   const [currentView, setCurrentView] = useState<'landing' | 'v1' | 'plan' | 'demo' | 'auth'>('v1');
+  const [v1Tab, setV1Tab] = useState<V1SubTab>('chat');
   const [selectedCitation, setSelectedCitation] = useState<CitationSource | null>(null);
 
   const handleOpenCitation = (source: CitationSource) => {
     setSelectedCitation(source);
   };
 
+  const handleOpenChatRag = () => {
+    setCurrentView('v1');
+    setV1Tab('chat');
+  };
+
   const handleSearchQuery = (_query: string) => {
     if (isAuthenticated) {
       setCurrentView('v1');
+      setV1Tab('chat');
     } else {
       setCurrentView('auth');
     }
@@ -44,6 +51,8 @@ function AppContent() {
       <Navbar
         currentView={effectiveView}
         setCurrentView={setCurrentView}
+        v1Tab={v1Tab}
+        onOpenChatRag={handleOpenChatRag}
         onOpenQuickDemo={() => setSelectedCitation(MOCK_CITATIONS[0])}
       />
 
@@ -52,7 +61,10 @@ function AppContent() {
         {effectiveView === 'auth' && (
           <div className="animate-in fade-in duration-300">
             <AuthLoginView
-              onLoginSuccess={() => setCurrentView('v1')}
+              onLoginSuccess={() => {
+                setCurrentView('v1');
+                setV1Tab('chat');
+              }}
               onCancel={() => setCurrentView('landing')}
             />
           </div>
@@ -60,7 +72,10 @@ function AppContent() {
 
         {effectiveView === 'v1' && isAuthenticated && (
           <div className="animate-in fade-in duration-300">
-            <V1WorkspaceView />
+            <V1WorkspaceView
+              activeTab={v1Tab}
+              onTabChange={setV1Tab}
+            />
           </div>
         )}
 

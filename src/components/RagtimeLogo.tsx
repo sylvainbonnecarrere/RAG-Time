@@ -20,7 +20,7 @@ export const RagtimeLogo: React.FC<RagtimeLogoProps> = ({
     <div className={`flex items-center gap-2.5 ${className}`}>
       {/* Emblème SVG Conceptuel : Portée Ternaire Syncopée & Blocs Vectoriels */}
       <div
-        className="relative flex items-center justify-center rounded-xl bg-gradient-to-br from-[#181824] via-[#101018] to-[#0a0a0f] border border-amber-500/30 shadow-lg shadow-amber-500/10 group-hover:border-amber-400/60 transition-all duration-300 overflow-hidden shrink-0"
+        className="relative flex items-center justify-center rounded-xl bg-gradient-to-br from-[#181824] via-[#101018] to-[#0a0a0f] transition-all duration-300 overflow-hidden shrink-0"
         style={{ width: size, height: size }}
       >
         {/* Halo ambiant doré subtil évoquant les cuivres et le laiton de la Nouvelle-Orléans */}
@@ -30,135 +30,138 @@ export const RagtimeLogo: React.FC<RagtimeLogoProps> = ({
           viewBox="0 0 48 48"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="w-[85%] h-[85%] relative z-10"
+          className="w-[86%] h-[86%] relative z-10"
         >
-          {/* Lignes de portée musicale (Staff lines) avec ondulation rythmique */}
-          <line
-            x1="6"
-            y1="14"
-            x2="42"
-            y2="14"
-            stroke="#6366f1"
-            strokeWidth="1.2"
-            strokeOpacity="0.4"
-            strokeDasharray="1 1.5"
-          />
-          <line
-            x1="6"
-            y1="22"
-            x2="42"
-            y2="22"
-            stroke="#818cf8"
-            strokeWidth="1.2"
-            strokeOpacity="0.5"
-          />
-          <line
-            x1="6"
-            y1="30"
-            x2="42"
-            y2="30"
-            stroke="#f59e0b"
-            strokeWidth="1.2"
-            strokeOpacity="0.6"
-          />
-          <line
-            x1="6"
-            y1="38"
-            x2="42"
-            y2="38"
-            stroke="#fbbf24"
-            strokeWidth="1.2"
-            strokeOpacity="0.4"
-            strokeDasharray="1 1.5"
-          />
+          {/* Groupe centré optiquement sur les axes X et Y */}
+          <g transform="translate(0, 2.6)">
+            {/* Lignes de portée musicale (Staff lines) avec ondulation rythmique */}
+            <line
+              x1="6"
+              y1="14"
+              x2="42"
+              y2="14"
+              stroke="#6366f1"
+              strokeWidth="1.2"
+              strokeOpacity="0.4"
+              strokeDasharray="1 1.5"
+            />
+            <line
+              x1="6"
+              y1="22"
+              x2="42"
+              y2="22"
+              stroke="#818cf8"
+              strokeWidth="1.2"
+              strokeOpacity="0.5"
+            />
+            <line
+              x1="6"
+              y1="30"
+              x2="42"
+              y2="30"
+              stroke="#f59e0b"
+              strokeWidth="1.2"
+              strokeOpacity="0.6"
+            />
+            <line
+              x1="6"
+              y1="38"
+              x2="42"
+              y2="38"
+              stroke="#fbbf24"
+              strokeWidth="1.2"
+              strokeOpacity="0.4"
+              strokeDasharray="1 1.5"
+            />
 
-          {/* Triolet de 3 notes syncopées RAGTIME (sans clé) */}
-          {/* Note 1 : Tête de note 1 (pgvector block dense) */}
-          <ellipse
-            cx="13"
-            cy="31"
-            rx="3.6"
-            ry="2.6"
-            transform="rotate(-20 13 31)"
-            fill="url(#gold-grad)"
-          />
-          <line
-            x1="16"
-            y1="30"
-            x2="16"
-            y2="13"
-            stroke="#fbbf24"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
+            {/* Triolet de 3 notes syncopées RAGTIME (sans clé) */}
+            {/* Note 1 : Tête de note 1 (pgvector block dense) */}
+            <ellipse
+              cx="13"
+              cy="31"
+              rx="3.6"
+              ry="2.6"
+              transform="rotate(-20 13 31)"
+              fill="url(#gold-grad)"
+            />
+            <line
+              x1="16"
+              y1="30"
+              x2="16"
+              y2="13"
+              stroke="#fbbf24"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
 
-          {/* Note 2 : Tête de note syncopée décalée (Ternaire Ragtime) */}
-          <ellipse
-            cx="24"
-            cy="24"
-            rx="3.6"
-            ry="2.6"
-            transform="rotate(-20 24 24)"
-            fill="url(#indigo-grad)"
-          />
-          <line
-            x1="27"
-            y1="23"
-            x2="27"
-            y2="9"
-            stroke="#818cf8"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
+            {/* Note 2 : Tête de note syncopée décalée (Ternaire Ragtime) */}
+            <ellipse
+              cx="24"
+              cy="24"
+              rx="3.6"
+              ry="2.6"
+              transform="rotate(-20 24 24)"
+              fill="url(#indigo-grad)"
+            />
+            <line
+              x1="27"
+              y1="23"
+              x2="27"
+              y2="9"
+              stroke="#818cf8"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
 
-          {/* Note 3 : Tête de note haute */}
-          <ellipse
-            cx="35"
-            cy="18"
-            rx="3.4"
-            ry="2.5"
-            transform="rotate(-20 35 18)"
-            fill="url(#gold-grad)"
-          />
-          <line
-            x1="38"
-            y1="17"
-            x2="38"
-            y2="6"
-            stroke="#fbbf24"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
+            {/* Note 3 : Tête de note haute */}
+            <ellipse
+              cx="35"
+              cy="18"
+              rx="3.4"
+              ry="2.5"
+              transform="rotate(-20 35 18)"
+              fill="url(#gold-grad)"
+            />
+            <line
+              x1="38"
+              y1="17"
+              x2="38"
+              y2="6"
+              stroke="#fbbf24"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
 
-          {/* Double Ligature Supérieure de Triolet (Beams en cascade ternaire) */}
-          <path
-            d="M 16 13 L 27 9 L 38 6"
-            stroke="#f59e0b"
-            strokeWidth="2.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M 16 17 L 27 13 L 38 10"
-            stroke="#818cf8"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+            {/* Double Ligature Supérieure de Triolet (Beams en cascade ternaire) */}
+            <path
+              d="M 16 13 L 27 9 L 38 6"
+              stroke="#f59e0b"
+              strokeWidth="2.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M 16 17 L 27 13 L 38 10"
+              stroke="#818cf8"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
 
-          {/* Chiffre 3 discret de triolet au-dessus de la ligature */}
-          <text
-            x="27"
-            y="5"
-            textAnchor="middle"
-            fill="#fbbf24"
-            fontSize="5.5"
-            fontFamily="monospace"
-            fontWeight="bold"
-            opacity="0.85"
-          >
-            3
-          </text>
+            {/* Chiffre 3 discret de triolet au-dessus de la ligature */}
+            <text
+              x="27"
+              y="5"
+              textAnchor="middle"
+              fill="#fbbf24"
+              fontSize="5.5"
+              fontFamily="monospace"
+              fontWeight="bold"
+              opacity="0.85"
+            >
+              3
+            </text>
+          </g>
 
           {/* Définitions des dégradés Cuivre/Or et Indigo souverain */}
           <defs>

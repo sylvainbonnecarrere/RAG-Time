@@ -14,10 +14,13 @@ import {
   ChatMessageDTO,
   MessageSourceDTO,
   SavedConversationSession,
+  RagPresetDTO,
 } from '../../contracts/api-types';
 import { DomainConfigModal } from './DomainConfigModal';
+import { PresetInfoModal } from './PresetInfoModal';
 import { validateChatQuery } from '../../lib/validation/schemas';
 import { FormFieldFeedback } from './FormFieldFeedback';
+import { CosineScoreBadge } from './CosineScoreBadge';
 import {
   Send,
   Square,
@@ -59,6 +62,7 @@ import {
   Trash2,
   CheckCircle2,
   X,
+  Info,
 } from 'lucide-react';
 
 interface SourcedChatViewProps {
@@ -70,10 +74,11 @@ export const SourcedChatView: React.FC<SourcedChatViewProps> = ({
   onInspectChunk,
   onNavigateToDocuments,
 }) => {
-  const { activeTenant, tenants, switchTenant, tenantSwitchCount } = useTenant();
+  const { activeTenant, tenants, switchTenant, tenantSwitchCount, activePreset, presets, activatePreset } = useTenant();
   const { streamState, startStream, abortStream } = useSSEStream();
 
   const [inputQuery, setInputQuery] = useState('');
+  const [infoModalPreset, setInfoModalPreset] = useState<RagPresetDTO | null>(null);
   const [chatValidationError, setChatValidationError] = useState<string | null>(null);
   const [chatValidationWarning, setChatValidationWarning] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessageDTO[]>([]);
@@ -85,6 +90,7 @@ export const SourcedChatView: React.FC<SourcedChatViewProps> = ({
 
   // Gestion du sélecteur de domaine et modal
   const [isDomainDropdownOpen, setIsDomainDropdownOpen] = useState(false);
+  const [isPresetDropdownOpen, setIsPresetDropdownOpen] = useState(false);
   const [isDomainModalOpen, setIsDomainModalOpen] = useState(false);
   const [domainModalMode, setDomainModalMode] = useState<'create' | 'edit'>('create');
 
@@ -880,6 +886,100 @@ export const SourcedChatView: React.FC<SourcedChatViewProps> = ({
             <span className="hidden sm:inline">Nouveau Domaine</span>
           </button>
 
+          {/* SÉLECTEUR & AFFICHAGE CLAIR DU PRESET RAG SÉLECTIONNÉ POUR LE RETRIEVAL (US-FRONT-35 & QA) */}
+          <div className="relative flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setIsPresetDropdownOpen(!isPresetDropdownOpen)}
+              className="flex items-center gap-1.5 bg-indigo-950/70 hover:bg-indigo-900/80 border border-indigo-700/80 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 transition-all font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-xs cursor-pointer"
+              title="Preset RAG actif sélectionné pour le retrieval"
+              id="btn-active-preset-selector"
+            >
+              <Sliders className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <span className="text-zinc-400 hidden lg:inline">Preset Retrieval :</span>
+              <span className="font-semibold text-indigo-200">{activePreset?.name || 'Équilibré et standard'}</span>
+              <span className="text-[10px] font-mono text-indigo-300 bg-indigo-900/80 px-1.5 py-0.2 rounded border border-indigo-700/60">
+                Top-{activePreset?.retrieval_top_k || 4}
+              </span>
+              <ChevronDown className="w-3 h-3 text-indigo-400" />
+            </button>
+
+            {/* Bouton direct d'information pour le preset actif */}
+            {activePreset && (
+              <button
+                type="button"
+                onClick={() => setInfoModalPreset(activePreset)}
+                className="p-1.5 rounded-lg bg-indigo-950/70 hover:bg-indigo-900/80 border border-indigo-700/80 text-indigo-300 hover:text-white transition-colors cursor-pointer"
+                title="Consulter les caractéristiques techniques du preset actif (chunking, embedding, retrieval)"
+                id="btn-info-active-preset"
+              >
+                <Info className="w-3.5 h-3.5" />
+              </button>
+            )}
+
+            {isPresetDropdownOpen && (
+              <div className="absolute left-0 mt-1 w-72 sm:w-80 bg-[#121214] border border-indigo-800/80 rounded-lg shadow-2xl p-1.5 z-50 animate-in fade-in-50 zoom-in-95">
+                <div className="px-2.5 py-1.5 text-[11px] font-semibold text-zinc-300 border-b border-zinc-800 flex items-center justify-between">
+                  <span>Presets de retrieval ({presets.length})</span>
+                  <span className="text-indigo-400 font-mono text-[10px]">Sélection active</span>
+                </div>
+                <div className="space-y-1 mt-1 max-h-56 overflow-y-auto">
+                  {presets.map((p) => {
+                    const isSelected = p.id === activePreset?.id;
+                    return (
+                      <div
+                        key={p.id}
+                        className={`w-full px-2.5 py-2 rounded-md flex items-center justify-between text-xs transition-colors ${
+                          isSelected
+                            ? 'bg-indigo-950/80 border border-indigo-700/60 text-indigo-200 font-semibold'
+                            : 'hover:bg-zinc-900 text-zinc-300 border border-transparent'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await activatePreset(p.id);
+                            setIsPresetDropdownOpen(false);
+                          }}
+                          className="flex-grow text-left truncate focus:outline-none cursor-pointer"
+                        >
+                          <div className="truncate">
+                            <div className="flex items-center gap-1.5">
+                              <span className="truncate">{p.name}</span>
+                              {isSelected && <Check className="w-3 h-3 text-emerald-400 shrink-0" />}
+                            </div>
+                            <div className="text-[10px] font-mono text-zinc-400 mt-0.5">
+                              {p.chunk_size}/{p.chunk_overlap} tok • Top-{p.retrieval_top_k} • &ge;{p.similarity_threshold.toFixed(2)}
+                            </div>
+                          </div>
+                        </button>
+
+                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                          {p.is_active && (
+                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/70 border border-emerald-800/50 text-emerald-300">
+                              Défaut
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setInfoModalPreset(p);
+                            }}
+                            className="p-1 rounded text-zinc-400 hover:text-indigo-300 hover:bg-zinc-800/80 transition-colors cursor-pointer"
+                            title={`Caractéristiques du preset ${p.name}`}
+                          >
+                            <Info className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Bouton de personnalisation système du domaine actif (Exigence Utilisateur) */}
           <button
             type="button"
@@ -1419,9 +1519,10 @@ export const SourcedChatView: React.FC<SourcedChatViewProps> = ({
                           <span className="text-[10px] font-mono text-indigo-300">
                             p.{src.page_number}
                           </span>
-                          <span className="text-[10px] font-mono text-zinc-400 bg-zinc-900 px-1 py-0.5 rounded">
-                            score: {src.similarity_score.toFixed(3)}
-                          </span>
+                          <CosineScoreBadge
+                            score={src.similarity_score}
+                            threshold={activePreset?.similarity_threshold || 0.7}
+                          />
                         </button>
                       ))}
                     </div>
@@ -1803,6 +1904,13 @@ export const SourcedChatView: React.FC<SourcedChatViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal d'information et de synthèse des caractéristiques du Preset RAG (Phase 8 QA) */}
+      <PresetInfoModal
+        isOpen={infoModalPreset !== null}
+        preset={infoModalPreset}
+        onClose={() => setInfoModalPreset(null)}
+      />
     </div>
   );
 };

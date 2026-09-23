@@ -199,18 +199,34 @@ export interface PresetFormData {
   retrieval_top_k: number;
   reranking_enabled: boolean;
   embedding_model: string;
+  chunking_strategy?: string;
+  tokenizer_family?: string;
+  word_boundary_trim?: boolean;
+  sentences_per_chunk?: number;
+  sentence_overlap?: number;
+  respect_strong_punctuation?: boolean;
+  min_sentence_tokens?: number;
+  max_sentence_tokens?: number;
+  preserve_abbreviations?: boolean;
+  markdown_heading_levels?: string[];
+  prefix_breadcrumbs?: boolean;
+  protect_atomic_blocks?: boolean;
+  max_section_tokens?: number;
 }
 
 export function validatePresetParams(
   data: PresetFormData,
-  isTenantEmpty: boolean
+  isTenantEmpty: boolean,
+  options?: { allowRetrievalOnly?: boolean }
 ): ValidationResult<PresetFormData> {
   const errors: Record<string, string> = {};
   const warnings: Record<string, string> = {};
 
   // Règle d'or TNR-18 / US-FRONT-19 : Espace alimenté -> modification bloquée
-  if (!isTenantEmpty) {
-    errors.general = "Violation d'immutabilité : Cet espace contient déjà des documents découpés en chunks dans pgvector. Le preset est strictement scellé.";
+  if (!isTenantEmpty && options?.allowRetrievalOnly !== true) {
+    const immutabilityMsg = "Violation d'immutabilité : Cet espace contient déjà des documents découpés en chunks dans pgvector. Le preset est strictement scellé.";
+    errors.immutability = immutabilityMsg;
+    errors.general = immutabilityMsg;
     return { isValid: false, errors };
   }
 
@@ -219,6 +235,11 @@ export function validatePresetParams(
     errors.name = "Le nom du preset est requis.";
   } else if (name.length < 3 || name.length > 80) {
     errors.name = "Le nom du preset doit comporter entre 3 et 80 caractères.";
+  }
+
+  // Modèle d'embedding (doit être non-vide)
+  if (!data.embedding_model || !data.embedding_model.trim()) {
+    errors.embedding_model = "Le modèle d'embedding doit être spécifié.";
   }
 
   // Chunk Size (256 à 1024 tokens)
@@ -237,6 +258,23 @@ export function validatePresetParams(
   if (!errors.chunk_size && !errors.chunk_overlap) {
     if (chunkOverlap >= chunkSize / 2) {
       errors.chunk_overlap = `Incohérence mathématique : le recouvrement (${chunkOverlap} tok) doit être strictement inférieur à la moitié de la taille de chunk (${Math.floor(chunkSize / 2)} tok) pour éviter les redondances vectorielles.`;
+    }
+  }
+
+  // Validations spécifiques aux stratégies de découpage dynamiques (US-FRONT-37)
+  if (data.chunking_strategy === 'sentence_boundary') {
+    const sentences = Number(data.sentences_per_chunk ?? 5);
+    const sentOverlap = Number(data.sentence_overlap ?? 1);
+    if (isNaN(sentences) || sentences < 2 || sentences > 12) {
+      errors.sentences_per_chunk = "Le nombre de phrases par chunk doit être compris entre 2 et 12.";
+    }
+    if (isNaN(sentOverlap) || sentOverlap < 0 || sentOverlap >= sentences) {
+      errors.sentence_overlap = "Le recouvrement phrastique doit être inférieur au nombre de phrases par chunk.";
+    }
+  } else if (data.chunking_strategy === 'markdown_sections') {
+    const maxSection = Number(data.max_section_tokens ?? 1024);
+    if (isNaN(maxSection) || maxSection < 512 || maxSection > 2048) {
+      errors.max_section_tokens = "Le plafond de section Markdown doit être compris entre 512 et 2048 tokens.";
     }
   }
 

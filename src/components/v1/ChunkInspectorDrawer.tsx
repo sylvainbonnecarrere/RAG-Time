@@ -6,6 +6,7 @@
 
 import React, { useState } from 'react';
 import { MessageSourceDTO } from '../../contracts/api-types';
+import { VisualVectorSimilarityInspector } from './VisualVectorSimilarityInspector';
 import {
   X,
   FileCheck,
@@ -94,12 +95,14 @@ export const ChunkInspectorDrawer: React.FC<ChunkInspectorDrawerProps> = ({
               </span>
             </div>
 
-            <div className="w-full bg-zinc-800 rounded-full h-2 overflow-hidden">
-              <div
-                className="bg-indigo-500 h-full rounded-full"
-                style={{ width: `${similarityPercentage}%` }}
-              />
-            </div>
+            {/* Jauge Thermique Visuelle Cosinus & Seuil (US-FRONT-30 & TNR-25) */}
+            <VisualVectorSimilarityInspector
+              score={source.similarity_score}
+              top1Score={source.similarity_score}
+              threshold={0.70}
+              strategy={source.chunk_index !== undefined ? 'Sections Markdown AST' : 'Fenêtre Glissante'}
+              sectionTitle={source.section_title || undefined}
+            />
 
             <div className="grid grid-cols-3 gap-2 pt-1 font-mono text-[10px]">
               <div className="p-2 rounded bg-zinc-950/60 border border-zinc-800 flex flex-col">

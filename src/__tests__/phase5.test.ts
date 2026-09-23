@@ -4,6 +4,8 @@
  */
 
 import { MemoryApiClient } from '../services/apiClient';
+import { validatePresetParams, validateLoginForm, validateDocumentUpload } from '../lib/validation/schemas';
+import { sanitizeInput } from '../lib/validation/sanitizer';
 
 describe('Phase 5 : Fonctionnalités Avancées & Non-Régression TNR-14 à TNR-17', () => {
   test('TNR-14 : Règle d\'Immutabilité des Presets après Ingestion (US-FRONT-15)', async () => {
@@ -71,5 +73,51 @@ describe('Phase 5 : Fonctionnalités Avancées & Non-Régression TNR-14 à TNR-1
 
     expect(demoAccounts.every((acc) => ['owner', 'member', 'viewer'].includes(acc.role))).toBe(true);
     expect(demoAccounts.find((acc) => acc.role === 'owner')?.email).toBe('admin@ragtime.fr');
+  });
+
+  test('TNR-18 : Immutabilité Conditionnelle des Presets RAG (US-FRONT-23)', () => {
+    const validPresetData = {
+      name: 'Preset Test Production',
+      chunk_size: 512,
+      chunk_overlap: 64,
+      similarity_threshold: 0.75,
+      retrieval_top_k: 5,
+      reranking_enabled: true,
+      embedding_model: 'nomic-embed-text-v1.5',
+    };
+
+    // Cas 1 : Domaine Vierge -> Doit être valide
+    const emptyValidation = validatePresetParams(validPresetData, true);
+    expect(emptyValidation.isValid).toBe(true);
+
+    // Cas 2 : Domaine Alimenté -> Bloqué avec erreur immutability
+    const populatedValidation = validatePresetParams(validPresetData, false);
+    expect(populatedValidation.isValid).toBe(false);
+    expect(populatedValidation.errors.immutability).toBeDefined();
+
+    // Cas 3 : Invariant overlap < chunk_size / 2
+    const invalidOverlap = validatePresetParams({ ...validPresetData, chunk_size: 256, chunk_overlap: 180 }, true);
+    expect(invalidOverlap.isValid).toBe(false);
+    expect(invalidOverlap.errors.chunk_overlap).toBeDefined();
+  });
+
+  test('TNR-19 : Assainissement XSS & Validation des Formulaires (US-FRONT-19)', () => {
+    // 1. Assainissement anti-XSS
+    const dirty = '<script>alert("xss")</script>Texte Propre';
+    const cleaned = sanitizeInput(dirty);
+    expect(cleaned).not.toContain('<script>');
+    expect(cleaned).not.toContain('alert');
+    expect(cleaned).toBe('Texte Propre');
+
+    // 2. Validation Login RFC
+    const invalidLogin = validateLoginForm('invalid-email', '123');
+    expect(invalidLogin.isValid).toBe(false);
+    expect(invalidLogin.errors.email).toBeDefined();
+    expect(invalidLogin.errors.password).toBeDefined();
+
+    // 3. Fichier interdit
+    const forbidden = validateDocumentUpload({ name: 'malware.exe', size: 1024, type: 'application/x-msdownload' } as any);
+    expect(forbidden.isValid).toBe(false);
+    expect(forbidden.errors.file).toBeDefined();
   });
 });

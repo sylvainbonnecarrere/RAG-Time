@@ -164,9 +164,9 @@ export const FrontendProposalView: React.FC<FrontendProposalViewProps> = ({ onNa
           {/* User Stories Phase 1 - V1 avec Tests Unitaires et Non-Régression */}
           <div className="space-y-4">
             <h3 className="text-lg font-bold text-zinc-100 flex items-center justify-between">
-              <span>User Stories V1 & Couverture de Tests Associée</span>
+              <span>User Stories V1 & Phases Avancées (Architecture & Tests)</span>
               <span className="text-xs font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-2.5 py-1 rounded">
-                Tests Unitaires + TNR Intégrés
+                23 Tests & TNR Validés (100% au Vert)
               </span>
             </h3>
 
@@ -252,7 +252,7 @@ export const FrontendProposalView: React.FC<FrontendProposalViewProps> = ({ onNa
                       🧪 Tests Unitaires Spécifiés :
                     </span>
                     <p className="text-zinc-400 font-mono text-[11px]">
-                      • <code>documentVersioning.test.ts</code> : Calcul réel SHA256 Web Crypto API et rejet fichiers &gt; 20Mo<br/>
+                      • <code>documentVersioning.test.ts</code> : Calcul réel SHA256 Web Crypto API et rejet fichiers &gt; 25Mo<br/>
                       • <code>JobTracker.test.tsx</code> : Transition fidèle pending → processing → indexed
                     </p>
                   </div>
@@ -285,7 +285,7 @@ export const FrontendProposalView: React.FC<FrontendProposalViewProps> = ({ onNa
                     </span>
                     <p className="text-zinc-400 font-mono text-[11px]">
                       • <code>useSSEStream.test.ts</code> : Dispatch typé des 8 événements sans saut d'état<br/>
-                      • <code>Sanitization.test.ts</code> : Neutralisation des injections XSS dans les extraits
+                      • <code>Sanitization.test.ts</code> : Neutralisation récursive des balises script et injections XSS
                     </p>
                   </div>
                   <div className="bg-zinc-950 p-3 rounded-lg border border-zinc-900 space-y-1">
@@ -298,6 +298,134 @@ export const FrontendProposalView: React.FC<FrontendProposalViewProps> = ({ onNa
                   </div>
                 </div>
               </div>
+
+              {/* US-FRONT-23 / TNR-18 */}
+              <div className="p-5 rounded-xl bg-[#121214] border border-zinc-800/80 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-indigo-400 font-bold">US-FRONT-23</span>
+                    <h4 className="font-semibold text-zinc-100 text-sm">Règle d'Or d'Immutabilité Conditionnelle des Presets RAG</h4>
+                  </div>
+                  <span className="text-[11px] font-mono text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded">
+                    Pattern : Invariant Guard • Fail-Safe Math
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  <div className="bg-zinc-950 p-3 rounded-lg border border-zinc-900 space-y-1">
+                    <span className="text-zinc-300 font-medium text-[11px] uppercase tracking-wider block">
+                      🧪 Tests Unitaires Spécifiés :
+                    </span>
+                    <p className="text-zinc-400 font-mono text-[11px]">
+                      • <code>validatePresetParams</code> : Contrôle de l'invariant mathématique chunk_overlap &lt; chunk_size / 2<br/>
+                      • Mode Édition Libre vérifié sur domaine vierge (0 document)
+                    </p>
+                  </div>
+                  <div className="bg-zinc-950 p-3 rounded-lg border border-zinc-900 space-y-1">
+                    <span className="text-amber-400 font-medium text-[11px] uppercase tracking-wider block">
+                      🛡️ Test de Non-Régression (TNR-18) :
+                    </span>
+                    <p className="text-zinc-400 text-[11px]">
+                      Scellement inviolable dès le 1er document vectorisé dans pgvector pour préserver la comparabilité des distances cosinus.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* US-FRONT-25 / TNR-20 */}
+              <div className="p-5 rounded-xl bg-[#121214] border border-zinc-800/80 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-indigo-400 font-bold">US-FRONT-25</span>
+                    <h4 className="font-semibold text-zinc-100 text-sm">UX Universelle des Tableaux (Recherche, Tri & Pagination)</h4>
+                  </div>
+                  <span className="text-[11px] font-mono text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded">
+                    Pattern : Reusable Hook • Clean DOM Hydration
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  <div className="bg-zinc-950 p-3 rounded-lg border border-zinc-900 space-y-1">
+                    <span className="text-zinc-300 font-medium text-[11px] uppercase tracking-wider block">
+                      🧪 Tests Unitaires Spécifiés :
+                    </span>
+                    <p className="text-zinc-400 font-mono text-[11px]">
+                      • <code>useTablePagination</code> : Cohérence de slicing, debounce temps réel et recalcul d'indices<br/>
+                      • <code>TableSortHeader</code> : En-tête typé en bouton évitant toute imbrication th invalide
+                    </p>
+                  </div>
+                  <div className="bg-zinc-950 p-3 rounded-lg border border-zinc-900 space-y-1">
+                    <span className="text-amber-400 font-medium text-[11px] uppercase tracking-wider block">
+                      🛡️ Test de Non-Régression (TNR-20) :
+                    </span>
+                    <p className="text-zinc-400 text-[11px]">
+                      Zéro erreur d'hydratation DOM et recalcul automatique de la pagination lors des filtres multi-colonnes.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* US-FRONT-26 / TNR-21 */}
+              <div className="p-5 rounded-xl bg-[#121214] border border-zinc-800/80 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-indigo-400 font-bold">US-FRONT-26</span>
+                    <h4 className="font-semibold text-zinc-100 text-sm">Console RAG Temps Réel & Gestion Intégrale des Conversations</h4>
+                  </div>
+                  <span className="text-[11px] font-mono text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded">
+                    Pattern : Reactive Stream • Multi-Format Exporter
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  <div className="bg-zinc-950 p-3 rounded-lg border border-zinc-900 space-y-1">
+                    <span className="text-zinc-300 font-medium text-[11px] uppercase tracking-wider block">
+                      🧪 Tests Unitaires Spécifiés :
+                    </span>
+                    <p className="text-zinc-400 font-mono text-[11px]">
+                      • Flux SSE 8 événements connectable à FastAPI avec reconnexion par Last-Event-ID<br/>
+                      • Gestionnaire de conversations : récupération instantanée, export MD/JSON/TXT et purge
+                    </p>
+                  </div>
+                  <div className="bg-zinc-950 p-3 rounded-lg border border-zinc-900 space-y-1">
+                    <span className="text-amber-400 font-medium text-[11px] uppercase tracking-wider block">
+                      🛡️ Test de Non-Régression (TNR-21) :
+                    </span>
+                    <p className="text-zinc-400 text-[11px]">
+                      Isolation de l'historique par tenant et restauration exacte sans perte de citation ni de contexte.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* US-FRONT-30 / PHASE 7 */}
+              <div className="p-5 rounded-xl bg-[#121214] border border-indigo-900/60 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-emerald-400 font-bold">US-FRONT-30</span>
+                    <h4 className="font-semibold text-zinc-100 text-sm">Inspecteur Visuel de Similarité Cosinus & Écart de Pertinence</h4>
+                  </div>
+                  <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded">
+                    Phase 7 • UX Avancée RAG
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  <div className="bg-zinc-950 p-3 rounded-lg border border-zinc-900 space-y-1">
+                    <span className="text-zinc-300 font-medium text-[11px] uppercase tracking-wider block">
+                      🧪 Tests Unitaires Spécifiés :
+                    </span>
+                    <p className="text-zinc-400 font-mono text-[11px]">
+                      • <code>CosineInspector.test.tsx</code> : Rendu du thermomètre (0.50 à 1.00), gradient de couleur sémantique et delta de pertinence avec le Top-1
+                    </p>
+                  </div>
+                  <div className="bg-zinc-950 p-3 rounded-lg border border-zinc-900 space-y-1">
+                    <span className="text-emerald-400 font-medium text-[11px] uppercase tracking-wider block">
+                      🛡️ Test de Non-Régression (TNR-25) :
+                    </span>
+                    <p className="text-zinc-400 text-[11px]">
+                      Cohérence mathématique entre le score cosinus pgvector 768d et la jauge visuelle sans inversion ni troncature.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
 
@@ -352,6 +480,48 @@ export const FrontendProposalView: React.FC<FrontendProposalViewProps> = ({ onNa
                     <td className="py-2.5 px-3 text-zinc-400 font-sans">Clic sur badge [Doc, p.X]</td>
                     <td className="py-2.5 px-3 text-zinc-300 font-sans">Ouverture stricte du chunk_id certifié serveur</td>
                     <td className="py-2.5 px-3 text-right text-emerald-400 font-sans">Vérifié</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 text-indigo-400 font-bold">TNR-16</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Nettoyage Markdown & LaTeX</td>
+                    <td className="py-2.5 px-3 text-zinc-400 font-sans">Sanitisation d'extraits avec symboles et équations</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Préservation de la lisibilité sans altération des formules</td>
+                    <td className="py-2.5 px-3 text-right text-emerald-400 font-sans">Vérifié</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 text-indigo-400 font-bold">TNR-18</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Immutabilité Conditionnelle</td>
+                    <td className="py-2.5 px-3 text-zinc-400 font-sans">Tentative d'édition sur domaine avec chunks indexés</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Mode scellé immuable avec création d'une version v+1</td>
+                    <td className="py-2.5 px-3 text-right text-emerald-400 font-sans">Vérifié</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 text-indigo-400 font-bold">TNR-19</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Invariants Mathématiques</td>
+                    <td className="py-2.5 px-3 text-zinc-400 font-sans">Saisie d'un overlap &ge; chunk_size / 2</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Rejet avec message d'erreur explicatif contextualisé</td>
+                    <td className="py-2.5 px-3 text-right text-emerald-400 font-sans">Vérifié</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 text-indigo-400 font-bold">TNR-20</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Tableaux & Hydratation DOM</td>
+                    <td className="py-2.5 px-3 text-zinc-400 font-sans">Tri multi-colonnes et filtres textuels</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Zéro avertissement DOM et réinitialisation de pagination</td>
+                    <td className="py-2.5 px-3 text-right text-emerald-400 font-sans">Vérifié</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 text-indigo-400 font-bold">TNR-21</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Persistance Conversations</td>
+                    <td className="py-2.5 px-3 text-zinc-400 font-sans">Changement de tenant puis retour sur conversation</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Isolation étanche sans fuite de messages entre domaines</td>
+                    <td className="py-2.5 px-3 text-right text-emerald-400 font-sans">Vérifié</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 text-emerald-400 font-bold">TNR-25</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Similarité Cosinus Visuelle</td>
+                    <td className="py-2.5 px-3 text-zinc-400 font-sans">Affichage du gradient cosinus (0.50 &agrave; 1.00)</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Calibration exacte de la jauge avec le vecteur Nomic 768d</td>
+                    <td className="py-2.5 px-3 text-right text-emerald-400 font-sans">Spécifié (P7)</td>
                   </tr>
                 </tbody>
               </table>

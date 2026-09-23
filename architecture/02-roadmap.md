@@ -83,13 +83,14 @@
 
 ---
 
-### Jalon 7 : Phase 7 (Souveraineté Avancée, Qualité RAG & Résilience Industrielle)
-- **Objectif** : Excellence opérationnelle, optimisation de la VRAM, et audit comparatif.
+### Jalon 7 : Phase 7 (Pipeline d'Ingestion Avancé, Nettoyage & Expérience Visuelle)
+- **Objectif** : Maîtrise intégrale de la qualité des données en amont de pgvector, prévention des corruptions de texte, partitionnement multi-stratégies et lisibilité immédiate de la pertinence sémantique.
 - **Livrables Clés** :
-  - **Re-ranking Local Cross-Encoder** (US-FRONT-27) : intégration du modèle `bge-reranker-base` exécuté localement, affichage du gain de pertinence calculé et filtrage du Top-K contextuel.
-  - **Déduplication Incrémentale des Chunks** (US-FRONT-28) : détection unitaire des doublons textuels par SHA-256 de chunk, métrique de compression vectorielle et économie de VRAM.
-  - **Console de Synthèse Comparative Inter-Domaines** (US-FRONT-29) : requête croisée multi-domaines pour comparer deux doctrines ou corpus documentaires côte-à-côte avec étanchéité stricte des sources.
-  - **Mode Déconnecté Air-Gap & Cache Résilient** (US-FRONT-30) : consultation hors-ligne autonome, sauvegarde chiffrée des archives et indicateur d'état réseau souverain.
+  - **Inspecteur Visuel de Similarité Vectorielle & Thermomètre Cosinus** (US-FRONT-30 / TNR-25) : jauge thermique continue (vert/ambre/rouge, 0.50 à 1.00), delta de pertinence $\Delta$ par rapport au Top-1, popover interactif sur les citations et intégration dans le tiroir d'inspection.
+  - **Module d'Extraction Web Trafilatura 2.0 Configurable** (US-FRONT-31 / TNR-26) : scraping d'URL avec bascule Précision (défaut RAG anti-boilerplate) vs Rappel, extraction de métadonnées (titre, date, auteur), extraction de tables et formatage Markdown.
+  - **Console de Nettoyage Déterministe & Diagnostic A/B** (US-FRONT-32 / TNR-27) : normalisation Unicode NFC canonique, éradication d'invisibles (`\u200B`, `\uFEFF`, `\u00AD`), neutralisation des balises orphelines sans altérer les formules scientifiques, comparateur A/B temps réel.
+  - **Studio Multi-Stratégies de Chunking Documentaire** (US-FRONT-33 / TNR-28) : sélection dynamique (Fenêtre glissante, Par phrases, Sections Markdown, Sémantique) avec formulaires adaptés et injection du préfixe contextuel de titre `[Section]`.
+  - **Simulateur Dry-Run Pré-Indexation & Estimateur de Tokens/VRAM** (US-FRONT-34 / TNR-29) : simulation complète avant toute écriture en base SQL, prévisualisation des 3 premiers chunks, histogramme de distribution et calcul de budget VRAM pgvector HNSW.
 
 ---
 

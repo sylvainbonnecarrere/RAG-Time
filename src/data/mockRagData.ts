@@ -201,7 +201,7 @@ export const FRONTEND_ROADMAP: FrontendMilestone[] = [
     target: 'Sprint 2 (V1 MVP)',
     deliverables: [
       'Génération automatique des types TypeScript stricts à partir du schéma OpenAPI de FastAPI.',
-      'Hook React personnalisé `useSSEStream` gérant les 7 événements obligatoires (message.started, retrieval.started, etc.) avec reprise par Last-Event-ID.',
+      'Hook React personnalisé `useSSEStream` gérant les 8 événements obligatoires avec reprise par Last-Event-ID.',
       'Composant Chat UI avec citations encapsulées sous forme de badges cliquables [Document, p.X].',
       'Tiroir latéral (Sheet) d\'inspection immédiate des chunks avec affichage de l\'extrait et du score.'
     ],
@@ -213,10 +213,59 @@ export const FRONTEND_ROADMAP: FrontendMilestone[] = [
     target: 'Sprint 3 (V1.1)',
     deliverables: [
       'Visualiseur de pipeline étape par étape (pas de chaîne de pensée simulée, uniquement données réelles).',
-      'Explorateur de chunks et métadonnées JSONB.',
+      'Explorateur de chunks et métadonnées JSONB pgvector.',
       'Formulaire de presets RAG avec infobulles pédagogiques expliquant les compromis de chunking.',
-      'Système d\'exportation des conversations et sources pour audit conformité RGPD.'
+      'Système d\'exportation des conversations et sources pour audit de conformité.'
     ],
     risksAndMitigations: 'Complexité cognitive : infobulles claires et visualisations visuelles intuitives sans jargon excessif.'
+  },
+  {
+    phase: 'Phase 4 - Authentification Durcie & Cloisonnement Multi-Tenant',
+    name: 'Sécurisation Sessions & Gestion Complète des Domaines',
+    target: 'Sprint 4 (V1.2)',
+    deliverables: [
+      'Formulaire d\'authentification RFC 5322 avec masquage anti-énumération et persistance de session.',
+      'Guard d\'authentification masquant strictement l\'espace RAG pour les visiteurs déconnectés.',
+      'Tableau de bord de gestion des domaines avec dialogue de warning de suppression irréversible.',
+      'Règle de résilience interdisant la suppression du dernier domaine restant.'
+    ],
+    risksAndMitigations: 'Fuite inter-tenants : purge atomique des caches en mémoire lors de chaque basculement d\'espace.'
+  },
+  {
+    phase: 'Phase 5 - Validation Déterministe & Immutabilité Conditionnelle',
+    name: 'Garde TNR-18 & Neutralisation Anti-XSS',
+    target: 'Sprint 5 (Sécurité & Intégrité)',
+    deliverables: [
+      'Assainissement déterministe anti-XSS et neutralisation récursive des balises malveillantes.',
+      'Contrôle d\'invariant mathématique chunk_overlap < chunk_size / 2 sur les presets.',
+      'Règle d\'or TNR-18 : édition libre sur domaine vierge, verrouillage scellé inviolable sur domaine alimenté.',
+      'Composant accessible FormFieldFeedback pour les retours d\'erreurs de formulaires et upload.'
+    ],
+    risksAndMitigations: 'Corruption d\'index : blocage formel des modifications d\'hyperparamètres une fois des vecteurs générés.'
+  },
+  {
+    phase: 'Phase 6 - Industrialisation & UX Universelle des Tableaux',
+    name: 'Raccordement SSE Réel, ARQ Worker & Gestion des Conversations',
+    target: 'Sprint 6 (Industrialisation)',
+    deliverables: [
+      'Composants de tableau universels : moteur de recherche réactif, tri sans erreur DOM, pagination fluide.',
+      'Raccordement réel au streaming SSE FastAPI avec gestion des 8 événements et reconnexion.',
+      'Gestion complète des conversations antérieures : récupération, recherche, export et suppression sécurisée.',
+      'Suivi de la file asynchrone ARQ / Redis Worker pour les documents volumineux.'
+    ],
+    risksAndMitigations: 'Erreurs d\'hydratation DOM : élimination des imbrications th dans les en-têtes triables.'
+  },
+  {
+    phase: 'Phase 7 - Pipeline d\'Extraction Avancé, Nettoyage & Expérience Visuelle',
+    name: 'Trafilatura, Normalisation Déterministe, Inspecteur Cosinus & Options Métier',
+    target: 'Sprint 7 (Qualité & Souveraineté)',
+    deliverables: [
+      'US-FRONT-30 : Inspecteur visuel de similarité cosinus avec thermomètre interactif et jauges d\'écart.',
+      'US-FRONT-31 : Pipeline d\'extraction avancée web/HTML (Trafilatura) avec bascule Précision / Rappel.',
+      'US-FRONT-32 : Nettoyage et normalisation déterministe (Unicode NFC, éradication invisibles et HTML).',
+      'US-FRONT-33 : Studio de chunking multi-stratégies (Fenêtre glissante, Par phrases, Sections Markdown).',
+      'US-FRONT-34 : Diagnostic et prévisualisation avant vectorisation (Dry-run, tokens et contrôle VRAM).'
+    ],
+    risksAndMitigations: 'Dégradation du corpus : vérification systématique des longueurs de chaînes et détection des caractères invisibles.'
   }
 ];
