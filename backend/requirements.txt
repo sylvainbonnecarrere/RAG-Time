@@ -1,0 +1,40 @@
+# ==============================================================================
+# RAGTIME Backend — Dépendances Python 3.12 (Souverain & On-Premise)
+# ==============================================================================
+
+# Framework Web & Serveur ASGI
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.12
+
+# Modèles & Validation
+pydantic>=2.10.0
+pydantic-settings>=2.6.0
+
+# Base de Données Relationnelle & Vectorielle (PostgreSQL 16 + pgvector)
+sqlmodel>=0.0.22
+sqlalchemy>=2.0.36
+asyncpg>=0.30.0
+pgvector>=0.3.6
+alembic>=1.14.0
+
+# Cache & File de Tâches Asynchrones (ARQ)
+redis>=5.2.0
+arq>=0.26.1
+
+# Client HTTP Asynchrone (Ollama Streaming & Trafilatura)
+httpx>=0.28.0
+
+# Observabilité & Métriques Prometheus (TNR-10 / Écran 5)
+prometheus-client>=0.21.0
+
+# Extraction Documentaire & Trafilatura (Phase 7)
+trafilatura>=2.0.0
+pymupdf>=1.25.0
+
+# Banc d'Essai & Tests Unitaires / Non-Régression
+pytest>=8.3.0
+pytest-asyncio>=0.24.0
+pytest-cov>=6.0.0
+ruff>=0.8.0
+mypy>=1.13.0

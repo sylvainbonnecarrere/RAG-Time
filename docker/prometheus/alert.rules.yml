@@ -1,0 +1,52 @@
+# ==============================================================================
+# RAGTIME — Règles d'Alerte Prometheus & Alertmanager (US-DEVOPS-07)
+# ==============================================================================
+# Documents de Référence : architecture/specifications/SPECIFICATION_FONCTIONNELLE_PAR_ECRAN.md (Écran 5)
+# ==============================================================================
+
+groups:
+  - name: ragtime_performance_alerts
+    rules:
+      # Règle 1 : Dégradation de Latence TTFT (> 800 ms)
+      - alert: TTFTTooHigh
+        expr: histogram_quantile(0.95, sum(rate(ragtime_ttft_seconds_bucket[2m])) by (le)) > 0.8
+        for: 1m
+        labels:
+          severity: warning
+          screen: "Ecran-5-Telemetry"
+        annotations:
+          summary: "Latence TTFT excessive (> 800ms sur p95)"
+          description: "Le Time-to-First-Token p95 a dépassé 800 ms pendant plus de 1 minute. Valeur courante : {{ $value }}s."
+
+      # Règle 2 : Risque de Saturation VRAM GPU (> 85%)
+      - alert: VRAMNearSaturation
+        expr: (ragtime_vram_usage_bytes / 25769803776) > 0.85 # Basé sur 24 Go (ex: RTX 4090)
+        for: 30s
+        labels:
+          severity: critical
+          screen: "Ecran-5-Telemetry"
+        annotations:
+          summary: "Consommation mémoire GPU VRAM critique (> 85%)"
+          description: "La mémoire VRAM du GPU dépasse 85% d'allocation. Risque imminent d'Out-Of-Memory (OOM) sur le modèle local."
+
+      # Règle 3 : Débit de Génération Faible (< 15 tokens/s)
+      - alert: LowTokensPerSecond
+        expr: ragtime_tokens_per_second < 15 and ragtime_tokens_per_second > 0
+        for: 45s
+        labels:
+          severity: warning
+          screen: "Ecran-5-Telemetry"
+        annotations:
+          summary: "Débit de génération de tokens dégradé (< 15 tok/s)"
+          description: "Le débit de streaming textuel du modèle LLM local a chuté sous 15 tokens par seconde."
+
+      # Règle 4 : Indisponibilité d'un Service Socle (FastAPI, Postgres, Ollama, Redis)
+      - alert: CoreServiceDown
+        expr: ragtime_service_health == 0
+        for: 30s
+        labels:
+          severity: critical
+          screen: "Ecran-5-Telemetry"
+        annotations:
+          summary: "Un service socle RAGTIME est tombé ({{ $labels.service }})"
+          description: "Le composant {{ $labels.service }} ne répond plus aux sondes de santé depuis plus de 30 secondes."

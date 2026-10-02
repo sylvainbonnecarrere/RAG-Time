@@ -1,0 +1,32 @@
+# ==============================================================================
+# RAGTIME — Configuration du Scraper Prometheus (US-DEVOPS-06)
+# ==============================================================================
+
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+rule_files:
+  - "alert.rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+scrape_configs:
+  # 1. Scraping des métriques du Backend FastAPI & Moteur RAG
+  - job_name: "ragtime-backend"
+    metrics_path: "/metrics"
+    scrape_interval: 3s
+    static_configs:
+      - targets: ["backend:8000", "host.docker.internal:8000"]
+        labels:
+          environment: "production"
+          service: "ragtime-api"
+
+  # 2. Métriques internes Prometheus
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]

@@ -1,0 +1,31 @@
+# ==============================================================================
+# RAGTIME Frontend — Dockerfile Multi-Stage (Vite Build + Nginx Alpine)
+# ==============================================================================
+
+# --- Étape 1 : Construction des Assets Statiques avec Node.js ---
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+# --- Étape 2 : Serveur Web Léger de Production Nginx Alpine ---
+FROM nginx:alpine AS runner
+
+LABEL maintainer="Équipe RAGTIME <devops@ragtime.internal>"
+LABEL description="RAGTIME Static Frontend UI"
+
+# Remplacement de la configuration Nginx par défaut
+RUN rm -rf /etc/nginx/conf.d/default.conf
+COPY docker/nginx/frontend.conf /etc/nginx/conf.d/default.conf
+
+# Copie des fichiers compilés
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

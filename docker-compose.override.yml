@@ -1,0 +1,22 @@
+# ==============================================================================
+# RAGTIME — Surcharge Docker Compose pour Environnement Local & GPU NVIDIA
+# ==============================================================================
+# Ce fichier est fusionné automatiquement par Docker Compose lors de l'exécution locale.
+# Pour activer l'accélération matérielle GPU sur les hôtes compatibles (NVIDIA Container Toolkit).
+# ==============================================================================
+
+services:
+  # Exemple d'activation GPU pour le backend ou un worker d'inférence dédié
+  backend:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # Montage optionnel du code source en volume pour le live-reloading de développement
+  # backend:
+  #   volumes:
+  #     - ./backend:/app:ro

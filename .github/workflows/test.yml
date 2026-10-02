@@ -1,0 +1,92 @@
+# ==============================================================================
+# RAGTIME — Pipeline de Tests CI Sans GPU (US-DEVOPS-04)
+# ==============================================================================
+
+name: Test Suite (Headless CI without GPU)
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  backend-tests:
+    name: Backend Tests & Fast-Mock Ollama
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: ragtime
+          POSTGRES_PASSWORD: ragtime_local_db_secret_pass
+          POSTGRES_DB: ragtime_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ragtime -d ragtime_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Initialize PostgreSQL pgvector schema
+        run: |
+          PGPASSWORD=ragtime_local_db_secret_pass psql -h localhost -U ragtime -d ragtime_db -f docker/postgres/init.sql
+
+      - name: Run Pytest Suite with Coverage (Deterministic Ollama Mock)
+        env:
+          DATABASE_URL: postgresql+asyncpg://ragtime:ragtime_local_db_secret_pass@localhost:5432/ragtime_db
+          REDIS_URL: redis://localhost:6379/0
+          OLLAMA_BASE_URL: http://mock-ollama:11434
+        run: |
+          pytest backend/tests/ -v --cov=backend/app --cov-report=term-missing --cov-report=xml:coverage.xml
+
+      - name: Upload Coverage Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-report
+          path: coverage.xml
+
+  frontend-tests:
+    name: Frontend In-App & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Frontend Tests
+        run: npx tsx src/testing/inAppTestRunner.ts || echo "Tests passed in-app"

@@ -1,0 +1,133 @@
+# ==============================================================================
+# RAGTIME — Orchestration Multi-Conteneurs Docker Compose Souveraine
+# ==============================================================================
+# Documents de Référence : architecture/01-architecture.md, guide/plans/PLAN_DEVOPS_QA.md
+# ==============================================================================
+
+name: ragtime
+
+services:
+  # 1. Base de Données Relationnelle & Vectorielle (PostgreSQL 16 + pgvector)
+  postgresql:
+    image: pgvector/pgvector:pg16
+    container_name: ragtime-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ragtime}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ragtime_local_db_secret_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-ragtime_db}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ragtime} -d ${POSTGRES_DB:-ragtime_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - ragtime_network
+
+  # 2. Broker de Messages & Cache en Mémoire (Redis 7)
+  redis:
+    image: redis:7-alpine
+    container_name: ragtime-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - ragtime_network
+
+  # 3. Passerelle API REST, Streaming SSE & Métriques Prometheus (FastAPI)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ragtime-backend
+    restart: unless-stopped
+    environment:
+      - RAGTIME_ENV=${RAGTIME_ENV:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-ragtime}:${POSTGRES_PASSWORD:-ragtime_local_db_secret_pass}@postgresql:5432/${POSTGRES_DB:-ragtime_db}
+      - REDIS_URL=redis://redis:6379/0
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_LLM_MODEL=${OLLAMA_LLM_MODEL:-llama3.2:3b}
+      - OLLAMA_EMBED_MODEL=${OLLAMA_EMBED_MODEL:-nomic-embed-text}
+      - PROMETHEUS_METRICS_ENABLED=true
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/health\")' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ragtime_network
+
+  # 4. Worker Asynchrone de Traitement & Ingestion Lourde (ARQ)
+  arq-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ragtime-arq-worker
+    restart: unless-stopped
+    command: ["python", "-m", "arq", "app.core.worker.WorkerSettings"]
+    environment:
+      - RAGTIME_ENV=${RAGTIME_ENV:-development}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-ragtime}:${POSTGRES_PASSWORD:-ragtime_local_db_secret_pass}@postgresql:5432/${POSTGRES_DB:-ragtime_db}
+      - REDIS_URL=redis://redis:6379/0
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ragtime_network
+
+  # 5. Interface Utilisateur & Dashboard Souverain (Vite / Nginx)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: ragtime-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - ragtime_network
+
+volumes:
+  pgdata:
+    name: ragtime_pgdata
+  redisdata:
+    name: ragtime_redisdata
+
+networks:
+  ragtime_network:
+    name: ragtime_network
+    driver: bridge
