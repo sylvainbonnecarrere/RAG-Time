@@ -4,15 +4,14 @@ Valide la conformité structurelle des modèles, les types, les contraintes et l
 """
 
 import uuid
-import pytest
-from sqlmodel import SQLModel, create_engine, Session, select
-from pydantic import ValidationError
 
-from app.models.tenants import Tenant, TenantCreate, TenantRead
-from app.models.documents import Document, DocumentVersion, DocumentRead
-from app.models.chunks import DocumentChunk, DocumentChunkRead
-from app.models.presets import RagPreset, RagPresetCreate, RagPresetRead
-from app.models.audit import QueryLog, QueryLogCreate
+import pytest
+from app.models.audit import QueryLog
+from app.models.chunks import DocumentChunk
+from app.models.documents import DocumentVersion
+from app.models.presets import RagPresetCreate
+from app.models.tenants import Tenant
+from pydantic import ValidationError
 
 
 def test_tenant_model_validation():
@@ -44,7 +43,6 @@ def test_preset_overlap_constraint():
 
 def test_document_versioning_model():
     """Vérifie le modèle DocumentVersion pour TNR-03 (v+1 immuable)."""
-    tenant_id = uuid.uuid4()
     doc_id = uuid.uuid4()
     
     version = DocumentVersion(

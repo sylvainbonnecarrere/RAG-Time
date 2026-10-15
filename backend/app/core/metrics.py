@@ -3,7 +3,7 @@ RAGTIME MLOps — Instrumentation Prometheus & Télémétrie Souveraine (US-DEVO
 Fournit les métriques réelles sans simulation pour satisfaire l'invariant TNR-10.
 """
 
-from prometheus_client import Counter, Gauge, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 
 # 1. Latence du Time-to-First-Token (TTFT) en secondes
 TTFT_HISTOGRAM = Histogram(

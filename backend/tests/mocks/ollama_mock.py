@@ -6,13 +6,13 @@ Fournit des embeddings 768d normalisés déterministes et un flux textuel SSE si
 
 import hashlib
 import math
-from typing import AsyncGenerator, Dict, List
+from collections.abc import AsyncGenerator
 
 
-def generate_deterministic_embedding(text: str, dimensions: int = 768) -> List[float]:
+def generate_deterministic_embedding(text: str, dimensions: int = 768) -> list[float]:
     """Génère un vecteur flottant unitaire déterministe à partir du hash SHA-256 du texte."""
     sha = hashlib.sha256(text.encode("utf-8")).digest()
-    raw_vector: List[float] = []
+    raw_vector: list[float] = []
     for i in range(dimensions):
         byte_val = sha[i % len(sha)]
         # Génération d'une valeur centrée entre -1.0 et 1.0
@@ -32,7 +32,7 @@ class FastMockOllamaClient:
     def __init__(self, base_url: str = "http://mock-ollama:11434"):
         self.base_url = base_url
 
-    async def get_tags(self) -> Dict:
+    async def get_tags(self) -> dict:
         """Simule GET /api/tags."""
         return {
             "models": [
@@ -41,7 +41,7 @@ class FastMockOllamaClient:
             ]
         }
 
-    async def generate_embeddings(self, model: str, prompt: str) -> List[float]:
+    async def generate_embeddings(self, model: str, prompt: str) -> list[float]:
         """Simule POST /api/embeddings renvoyant un vecteur 768d."""
         return generate_deterministic_embedding(prompt, dimensions=768)
 

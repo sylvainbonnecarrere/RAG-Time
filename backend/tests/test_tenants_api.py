@@ -4,10 +4,11 @@ Vérifie le cycle de vie complet des domaines, le seeding des 3 presets usine et
 """
 
 import uuid
-import pytest
+
 import httpx
-from httpx import ASGITransport
+import pytest
 from app.main import app
+from httpx import ASGITransport
 
 
 @pytest.mark.asyncio

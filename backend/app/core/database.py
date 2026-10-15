@@ -3,18 +3,20 @@ RAGTIME Sovereign Backend — Gestionnaire de Persistance & Pooling Sécurisé (
 Fournit l'accès asynchrone à PostgreSQL 16 + pgvector avec isolation RLS stricte et RESET systématique.
 """
 
+import logging
+import os
 import uuid
-from typing import AsyncGenerator, Optional
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+
+from app.core.config import settings
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import AsyncAdaptedQueuePool, NullPool
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy import text
-from app.core.config import settings
-
-import os
-from sqlalchemy.pool import NullPool, AsyncAdaptedQueuePool
 
 # En environnement de test Pytest, utiliser NullPool pour éliminer tout conflit d'Event Loop entre tests asyncpg
 is_testing = bool(os.environ.get("PYTEST_CURRENT_TEST")) or settings.RAGTIME_ENV == "testing"
@@ -36,6 +38,9 @@ async_session_factory = async_sessionmaker(
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 async def set_tenant_context(session: AsyncSession, tenant_id: uuid.UUID) -> None:
     """
     Injecte le contexte tenant pour la RLS PostgreSQL :
@@ -44,9 +49,8 @@ async def set_tenant_context(session: AsyncSession, tenant_id: uuid.UUID) -> Non
     """
     try:
         await session.execute(text("SET ROLE ragtime_app;"))
-    except Exception:
-        # Si le rôle ragtime_app n'est pas utilisé ou non disponible, continue
-        pass
+    except SQLAlchemyError as exc:
+        logger.debug("Bascule SET ROLE ragtime_app non applicable : %s", exc)
     await session.execute(
         text("SELECT set_config('app.current_tenant_id', :tenant_id, false);"),
         {"tenant_id": str(tenant_id)},
@@ -61,8 +65,8 @@ async def reset_tenant_context(session: AsyncSession) -> None:
     await session.execute(text("RESET app.current_tenant_id;"))
     try:
         await session.execute(text("RESET ROLE;"))
-    except Exception:
-        pass
+    except SQLAlchemyError as exc:
+        logger.debug("RESET ROLE non applicable : %s", exc)
 
 
 @asynccontextmanager
@@ -85,8 +89,8 @@ async def get_tenant_session(tenant_id: uuid.UUID) -> AsyncGenerator[AsyncSessio
             # Règle vitale TNR-02 : Assainissement impératif du pool asyncpg
             try:
                 await reset_tenant_context(session)
-            except Exception:
-                pass
+            except SQLAlchemyError as exc:
+                logger.warning("Échec de la réinitialisation du contexte tenant : %s", exc)
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:

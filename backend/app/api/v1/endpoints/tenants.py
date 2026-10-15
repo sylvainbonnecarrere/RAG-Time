@@ -5,14 +5,13 @@ Fournit les endpoints CRUD complets, le seeding des 3 presets usine et le garde-
 
 import uuid
 from decimal import Decimal
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, delete
 
 from app.core.database import get_db_session, get_tenant_session
-from app.models.tenants import Tenant, TenantCreate, TenantRead, TenantUpdate
 from app.models.presets import RagPreset
+from app.models.tenants import Tenant, TenantCreate, TenantRead, TenantUpdate
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/tenants", tags=["Tenants"])
 
@@ -60,7 +59,7 @@ FACTORY_PRESETS = [
 ]
 
 
-@router.get("", response_model=List[TenantRead])
+@router.get("", response_model=list[TenantRead])
 async def list_tenants(session: AsyncSession = Depends(get_db_session)):
     """Récupère l'intégralité des espaces de travail / tenants disponibles."""
     stmt = select(Tenant).order_by(Tenant.created_at.asc())
@@ -192,4 +191,3 @@ async def delete_tenant(
     # 2. Suppression en cascade
     await session.delete(tenant)
     await session.commit()
-    return None

@@ -4,14 +4,13 @@ Valide l'étanchéité SQL absolue entre tenants (TNR-02) et la politique tenant
 """
 
 import uuid
-import pytest
-import pytest_asyncio
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import text
 
+import pytest
 from app.core.config import settings
-from app.core.database import get_tenant_session, set_tenant_context, reset_tenant_context
+from app.core.database import get_tenant_session
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
 
 @pytest.mark.asyncio

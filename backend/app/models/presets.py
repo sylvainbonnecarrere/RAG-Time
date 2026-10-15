@@ -4,11 +4,11 @@ Garantit la contrainte TNR-28 : chunk_overlap < chunk_size / 2
 """
 
 import uuid
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from decimal import Decimal
-from sqlmodel import SQLModel, Field
+
 from pydantic import model_validator
+from sqlmodel import Field, SQLModel
 
 
 class RagPresetBase(SQLModel):
@@ -24,7 +24,7 @@ class RagPresetBase(SQLModel):
     prefix_section_title: bool = Field(default=True)
     embedding_model: str = Field(default="nomic-embed-text-v1.5", max_length=64)
     embedding_dim: int = Field(default=768)
-    parent_preset_id: Optional[uuid.UUID] = Field(default=None, foreign_key="rag_presets.id")
+    parent_preset_id: uuid.UUID | None = Field(default=None, foreign_key="rag_presets.id")
 
     @model_validator(mode="after")
     def validate_overlap_ratio(self) -> "RagPresetBase":
@@ -41,11 +41,11 @@ class RagPreset(RagPresetBase, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True, nullable=False)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class RagPresetCreate(RagPresetBase):
-    tenant_id: Optional[uuid.UUID] = None
+    tenant_id: uuid.UUID | None = None
 
 
 class RagPresetRead(RagPresetBase):
@@ -55,11 +55,11 @@ class RagPresetRead(RagPresetBase):
 
 
 class RagPresetUpdate(SQLModel):
-    name: Optional[str] = None
-    chunk_size: Optional[int] = None
-    chunk_overlap: Optional[int] = None
-    similarity_threshold: Optional[Decimal] = None
-    retrieval_top_k: Optional[int] = None
-    rerank_enabled: Optional[bool] = None
-    prefix_section_title: Optional[bool] = None
-    embedding_model: Optional[str] = None
+    name: str | None = None
+    chunk_size: int | None = None
+    chunk_overlap: int | None = None
+    similarity_threshold: Decimal | None = None
+    retrieval_top_k: int | None = None
+    rerank_enabled: bool | None = None
+    prefix_section_title: bool | None = None
+    embedding_model: str | None = None

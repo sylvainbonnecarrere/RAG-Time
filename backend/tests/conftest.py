@@ -3,12 +3,11 @@ Configuration Pytest pour le Backend RAGTIME (US-DEVOPS-04)
 Fournit les fixtures asynchrones pour tester l'API FastAPI et le Fast-Mock Ollama.
 """
 
+import httpx
 import pytest
 import pytest_asyncio
-import httpx
-from httpx import ASGITransport
-
 from app.main import app
+from httpx import ASGITransport
 from tests.mocks.ollama_mock import FastMockOllamaClient
 
 

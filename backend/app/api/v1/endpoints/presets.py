@@ -4,11 +4,6 @@ Garantit l'immutabilité des presets scellés (TNR-18) et le contrôle d'overlap
 """
 
 import uuid
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, update, text
-from sqlalchemy.exc import DBAPIError
 
 from app.core.database import get_tenant_session
 from app.models.presets import (
@@ -17,11 +12,14 @@ from app.models.presets import (
     RagPresetRead,
     RagPresetUpdate,
 )
+from fastapi import APIRouter, HTTPException, status
+from sqlalchemy import func, select, text, update
+from sqlalchemy.exc import DBAPIError
 
 router = APIRouter(prefix="/tenants/{tenant_id}/presets", tags=["Presets"])
 
 
-@router.get("", response_model=List[RagPresetRead])
+@router.get("", response_model=list[RagPresetRead])
 async def list_presets_for_tenant(tenant_id: uuid.UUID):
     """Liste tous les presets de chunking/retrieval rattachés à un espace de travail."""
     async with get_tenant_session(tenant_id) as session:
@@ -210,4 +208,4 @@ async def delete_preset(tenant_id: uuid.UUID, preset_id: uuid.UUID):
 
         await session.delete(preset)
         await session.commit()
-        return None
+        return

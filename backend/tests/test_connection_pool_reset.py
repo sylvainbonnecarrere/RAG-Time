@@ -4,16 +4,16 @@ Valide que app.current_tenant_id est toujours RESET à la restitution de connexi
 """
 
 import uuid
-import pytest
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import text
-import httpx
-from httpx import ASGITransport
 
+import httpx
+import pytest
 from app.core.config import settings
 from app.core.database import get_tenant_session
 from app.main import app
+from httpx import ASGITransport
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
 
 @pytest.mark.asyncio

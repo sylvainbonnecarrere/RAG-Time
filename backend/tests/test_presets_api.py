@@ -4,14 +4,13 @@ Vérifie la gestion des presets nommés, le commutateur par défaut et la double
 """
 
 import uuid
-from decimal import Decimal
-import pytest
+
 import httpx
+import pytest
+from app.core.database import get_tenant_session
+from app.main import app
 from httpx import ASGITransport
 from sqlalchemy import text
-
-from app.main import app
-from app.core.database import get_tenant_session
 
 
 @pytest.mark.asyncio

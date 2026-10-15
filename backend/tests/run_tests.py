@@ -4,9 +4,9 @@ Permet de valider immédiatement les invariants mathématiques et le mock Ollama
 sans exiger de paquets tiers préinstallés sur l'hôte.
 """
 
-import sys
-import os
 import math
+import os
+import sys
 import unittest
 
 # Ajout du répertoire backend au sys.path
@@ -14,7 +14,7 @@ backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
-from tests.mocks.ollama_mock import FastMockOllamaClient, generate_deterministic_embedding
+from tests.mocks.ollama_mock import generate_deterministic_embedding
 
 
 class TestOllamaMockDeterministic(unittest.TestCase):

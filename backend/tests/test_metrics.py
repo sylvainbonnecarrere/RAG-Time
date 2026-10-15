@@ -4,7 +4,7 @@ Vérifie la présence et la véracité des métriques TTFT, débit et VRAM sur /
 """
 
 import pytest
-from app.core.metrics import record_ttft, record_tokens_per_sec, record_vram_usage, update_service_health
+from app.core.metrics import record_tokens_per_sec, record_ttft, record_vram_usage, update_service_health
 
 
 @pytest.mark.asyncio

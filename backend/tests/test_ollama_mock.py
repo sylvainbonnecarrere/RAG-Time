@@ -4,8 +4,9 @@ Vérifie la dimensionnalité 768d, la normalisation unitaire L2 et le détermini
 """
 
 import math
+
 import pytest
-from tests.mocks.ollama_mock import FastMockOllamaClient, generate_deterministic_embedding
+from tests.mocks.ollama_mock import generate_deterministic_embedding
 
 
 @pytest.mark.asyncio

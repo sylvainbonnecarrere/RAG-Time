@@ -1,6 +1,6 @@
 # Rapport de Certification des Tests de Non-Régression (TNR) — RAGTIME
 
-> **Date d'exécution :** 2026-10-15T08:28:09Z  
+> **Date d'exécution :** 2026-10-15T09:53:35Z  
 > **Statut Global :** **SUCCÈS (100% Validé)**  
 > **Score :** 31 / 31 (100.0%)
 
@@ -10,14 +10,14 @@
 |---|---|---|---|---|---|
 | **TNR-01** | ✅ PASS | Contrat OpenAPI : Non-Régression de Schéma Binaire | Contrats API | Écran 6 | 0.0 ms |
 | **TNR-02** | ✅ PASS | Isolation Multi-Tenant Stricte & Purge Mémoire Cross-Tenant | Sécurité & Isolation | Barre de Domaine & Écran 6 | 0.0 ms |
-| **TNR-03** | ✅ PASS | Versionnage Documentaire Immuable (v+1 avec nouveau SHA-256) | Gestion Documentaire | Écran 2 | 0.34 ms |
+| **TNR-03** | ✅ PASS | Versionnage Documentaire Immuable (v+1 avec nouveau SHA-256) | Gestion Documentaire | Écran 2 | 0.04 ms |
 | **TNR-04** | ✅ PASS | Intégrité des Métadonnées JSONB des Chunks pgvector | Audit Vectoriel | Écran 4 & Tiroir | 0.0 ms |
 | **TNR-05** | ✅ PASS | Immutabilité des Presets RAG Actifs (Révision Distincte) | Presets RAG | Écran 3 | 0.0 ms |
 | **TNR-06** | ✅ PASS | Résilience Streaming SSE & Reconnexion Last-Event-ID | Streaming SSE | Écran 1 | 0.0 ms |
 | **TNR-07** | ✅ PASS | Assainissement Déterministe Anti-XSS (DOMPurify & Regex) | Sécurité Applicative | Écran 1 & 2 | 0.05 ms |
 | **TNR-08** | ✅ PASS | Garde de Sécurité : Interdiction de Suppression du Dernier Domaine | Gouvernance | Barre de Domaine | 0.0 ms |
 | **TNR-09** | ✅ PASS | Garde Éthique Anti-Hallucination sur Domaine Vierge (doc_count == 0) | Éthique IA | Écran 1 (Onboarding) | 0.0 ms |
-| **TNR-10** | ✅ PASS | Vérité Télémétrique du Cluster RAG (Métriques Réelles Instrumentées) | Observabilité MLOps | Écran 5 | 0.0 ms |
+| **TNR-10** | ✅ PASS | Vérité Télémétrique du Cluster RAG (Métriques Réelles Instrumentées) | Observabilité MLOps | Écran 5 | 0.01 ms |
 | **TNR-11** | ✅ PASS | Sécurité Navigation & Guard d'Authentification RBAC | Contrôle d'Accès | Navigation Globale | 0.0 ms |
 | **TNR-12** | ✅ PASS | Complexité des Mots de Passe Conforme aux Recommandations ANSSI | Sécurité Accès | Auth Modal | 0.0 ms |
 | **TNR-13** | ✅ PASS | Purge Mémoire & SessionStorage à la Déconnexion | Sécurité Données | Navbar | 0.0 ms |

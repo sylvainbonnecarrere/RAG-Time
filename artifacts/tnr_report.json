@@ -1,6 +1,6 @@
 {
   "suite": "RAGTIME TNR Full Matrix",
-  "timestamp": "2026-10-15T08:28:09Z",
+  "timestamp": "2026-10-15T09:53:35Z",
   "total": 31,
   "passed": 31,
   "failed": 0,
@@ -33,7 +33,7 @@
       "rule": "Un upload homonyme crée une version v+1 immuable sans écraser v1.",
       "screen": "Écran 2",
       "status": "passed",
-      "duration_ms": 0.34,
+      "duration_ms": 0.04,
       "details": "Version v2 créée avec empreinte cryptographique distincte (d2bae6b4...)."
     },
     {
@@ -103,7 +103,7 @@
       "rule": "Les métriques TTFT, tokens/s et VRAM proviennent des capteurs réels, sans fausse télémétrie.",
       "screen": "Écran 5",
       "status": "passed",
-      "duration_ms": 0.0,
+      "duration_ms": 0.01,
       "details": "Mesure TTFT certifiée à 428.0 ms sans données aléatoires."
     },
     {

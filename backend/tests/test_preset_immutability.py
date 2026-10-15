@@ -4,14 +4,14 @@ Valide le scellement in-place des presets si des document_chunks existent pour l
 """
 
 import uuid
-import pytest
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError
 
+import pytest
 from app.core.config import settings
 from app.core.database import get_tenant_session
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
 
 @pytest.mark.asyncio

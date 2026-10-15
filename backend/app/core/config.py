@@ -3,7 +3,7 @@ RAGTIME Backend — Configuration Applicative via Pydantic Settings
 Charge les variables d'environnement depuis le fichier .env ou les variables système.
 """
 
-from typing import List
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     # Backend Gateway
     BACKEND_HOST: str = "0.0.0.0"
     BACKEND_PORT: int = 8000
-    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
     # Base de données PostgreSQL + pgvector
     DATABASE_URL: str = "postgresql+asyncpg://ragtime:ragtime_local_db_secret_pass@localhost:5432/ragtime_db"

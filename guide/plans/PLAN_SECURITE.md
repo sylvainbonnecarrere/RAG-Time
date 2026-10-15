@@ -27,7 +27,7 @@
 
 ### Jalon Isolation des Données & RLS (Priorité 1)
 
-#### US-SEC-01 : Modélisation des Menaces STRIDE & Politiques RLS PostgreSQL
+#### US-SEC-01 : Modélisation des Menaces STRIDE & Politiques RLS PostgreSQL [STATUT : VALIDÉ (JALON 1)]
 - **User Story :** En tant qu'auditeur de sécurité, je veux auditer et appliquer les politiques Row-Level Security sur les tables `documents`, `document_chunks`, `audit_logs` et `rag_presets` pour garantir l'étanchéité absolue inter-domaines.
 - **Tâche PR :** `security(rls): verify and enforce strict postgresql row-level security policies for multi-tenant isolation`
 - **Pattern & SOLID :** *Zero-Trust Pattern*, *Defense-in-Depth*.
@@ -36,19 +36,22 @@
   - Rejet systématique de toute requête sans tenant configuré.
   - Impossibilité pour un utilisateur du tenant A de lire ou manipuler les chunks du tenant B, même par injection SQL directe.
 - **Tests Préalables (TDD - Pytest) :**
-  - `test_security_rls_leak.py` : Tentative de requête transversale inter-tenants bloquée à 100%.
+  - `test_security_rls_leak.py` : Tentative de requête transversale inter-tenants bloquée à 100% (Information Disclosure via cross-tenant joins & subqueries, Tampering cross-tenant UPDATE/DELETE, Spoofing cross-tenant INSERT).
   - `tnr_tenant_isolation_ui.py` (TNR-02) : Validation de l'absence de fuite de données.
+- **Preuve d'Audit & Validation :** Suite `backend/tests/test_security_rls_leak.py` validée sur rôle applicatif `ragtime_app` (`NOSUPERUSER, NOBYPASSRLS`).
 
-#### US-SEC-02 : Authentification Souveraine Argon2id & Sessions en Cookies HTTP-Only
+#### US-SEC-02 : Authentification Souveraine Argon2id & Sessions en Cookies HTTP-Only [STATUT : VALIDÉ (JALON 1)]
 - **User Story :** En tant qu'administrateur de sécurité, je veux implémenter l'authentification basée sur les recommandations ANSSI avec hachage Argon2id et délivrance du jeton JWT dans un cookie `HTTP-Only` sécurisé pour éradiquer les risques d'exfiltration.
 - **Tâche PR :** `security(auth): implement ANSSI-compliant Argon2id password hashing and HTTP-Only JWT session cookies`
 - **Pattern & SOLID :** *Authenticator Pattern*, *Secure Cookie Token Strategy*.
 - **Critères d'Acceptation :**
   - Paramètres Argon2id : `memory_cost=65536`, `time_cost=3`, `parallelism=4`, `salt_len=16`.
-  - Attributs du cookie : `HttpOnly=True`, `SameSite=Strict`, `Secure=True`, `Domain=local-or-fqdn`.
-  - Zéro jeton JWT injecté dans le corps de réponse JSON ou stocké dans le `localStorage`.
+  - Attributs du cookie : `HttpOnly=True`, `SameSite=Strict`, `Secure=True` (ou `False` en local test), `Path=/`.
+  - Zéro jeton JWT injecté dans le corps de réponse JSON ou stocké dans le `localStorage` (TNR-13).
+  - Endpoints implémentés : `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/me`.
 - **Tests Préalables (TDD - Pytest) :**
-  - `test_argon2id_hashing.py` : Vérification des paramètres cryptographiques et du salage aléatoire.
+  - `test_argon2id_hashing.py` : Vérification des paramètres cryptographiques ANSSI, salage aléatoire 16 octets et résilience.
+  - `test_auth_api.py` : Validation de l'émission exclusive en cookie HTTP-Only, corps JSON sans jeton, révocation logout `max-age=0` et anti-énumération HTTP 401.
   - `tnr_session_storage_purge.py` (TNR-13) : Vérification de la purge de session à la déconnexion.
 
 #### US-SEC-03 : Middleware Anti-Brute-Force & Réponses Uniformes Anti-Énumération

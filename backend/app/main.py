@@ -3,16 +3,17 @@ RAGTIME Sovereign Backend â€” Passerelle API REST, Streaming SSE & ObservabilitÃ
 """
 
 from contextlib import asynccontextmanager
+
+import httpx
+import redis.asyncio as aioredis
+from app.api.v1.router import api_v1_router
+from app.core.config import settings
+from app.core.database import TenantContextMiddleware, engine
+from app.core.metrics import get_latest_metrics, update_service_health
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
-import httpx
-
-from app.core.config import settings
-from app.core.metrics import get_latest_metrics, update_service_health
-from app.core.database import TenantContextMiddleware, engine
-from app.api.v1.router import api_v1_router
 from sqlalchemy import text
-import redis.asyncio as aioredis
+from sqlalchemy.exc import SQLAlchemyError
 
 
 @asynccontextmanager
@@ -75,7 +76,7 @@ async def health_check():
             else:
                 services["ollama_engine"] = "degraded"
                 update_service_health("ollama_engine", False)
-    except Exception:
+    except (httpx.HTTPError, OSError):
         services["ollama_engine"] = "unreachable"
         update_service_health("ollama_engine", False)
 
@@ -85,7 +86,7 @@ async def health_check():
             await conn.execute(text("SELECT 1;"))
         services["postgres_pgvector"] = "healthy"
         update_service_health("postgres_pgvector", True)
-    except Exception:
+    except (SQLAlchemyError, OSError):
         services["postgres_pgvector"] = "unreachable"
         update_service_health("postgres_pgvector", False)
 
@@ -100,7 +101,7 @@ async def health_check():
             services["redis_arq"] = "degraded"
             update_service_health("redis_arq", False)
         await r_client.aclose()
-    except Exception:
+    except (aioredis.RedisError, OSError):
         services["redis_arq"] = "unreachable"
         update_service_health("redis_arq", False)
 
