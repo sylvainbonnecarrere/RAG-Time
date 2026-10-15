@@ -9,6 +9,10 @@ import httpx
 
 from app.core.config import settings
 from app.core.metrics import get_latest_metrics, update_service_health
+from app.core.database import TenantContextMiddleware, engine
+from app.api.v1.router import api_v1_router
+from sqlalchemy import text
+import redis.asyncio as aioredis
 
 
 @asynccontextmanager
@@ -27,7 +31,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configuration CORS
+# Enregistrement des middlewares
+app.add_middleware(TenantContextMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.BACKEND_CORS_ORIGINS,
@@ -35,6 +40,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Branchement des routeurs applicatifs
+app.include_router(api_v1_router)
 
 
 @app.get("/")
@@ -49,15 +57,15 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Vérification de l'état de santé des briques socles."""
+    """Vérification dynamique de l'état de santé effectif des 4 briques socles."""
     services = {
         "fastapi": "healthy",
-        "postgres_pgvector": "unknown",
-        "redis_arq": "unknown",
-        "ollama_engine": "unknown",
+        "postgres_pgvector": "unreachable",
+        "redis_arq": "unreachable",
+        "ollama_engine": "unreachable",
     }
     
-    # 1. Test Ollama
+    # 1. Probe Ollama
     try:
         async with httpx.AsyncClient(timeout=2.0) as client:
             res = await client.get(f"{settings.OLLAMA_BASE_URL}/api/tags")
@@ -71,11 +79,30 @@ async def health_check():
         services["ollama_engine"] = "unreachable"
         update_service_health("ollama_engine", False)
 
-    # Note : les checks Postgres et Redis réels seront branchés lors de la connexion du pool
-    services["postgres_pgvector"] = "healthy"
-    update_service_health("postgres_pgvector", True)
-    services["redis_arq"] = "healthy"
-    update_service_health("redis_arq", True)
+    # 2. Probe PostgreSQL + pgvector
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1;"))
+        services["postgres_pgvector"] = "healthy"
+        update_service_health("postgres_pgvector", True)
+    except Exception:
+        services["postgres_pgvector"] = "unreachable"
+        update_service_health("postgres_pgvector", False)
+
+    # 3. Probe Redis
+    try:
+        r_client = aioredis.from_url(settings.REDIS_URL, socket_timeout=2.0)
+        pong = await r_client.ping()
+        if pong:
+            services["redis_arq"] = "healthy"
+            update_service_health("redis_arq", True)
+        else:
+            services["redis_arq"] = "degraded"
+            update_service_health("redis_arq", False)
+        await r_client.aclose()
+    except Exception:
+        services["redis_arq"] = "unreachable"
+        update_service_health("redis_arq", False)
 
     all_healthy = all(status == "healthy" for status in services.values())
     return {

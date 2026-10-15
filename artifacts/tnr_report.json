@@ -1,6 +1,6 @@
 {
   "suite": "RAGTIME TNR Full Matrix",
-  "timestamp": "2026-10-02T15:54:32Z",
+  "timestamp": "2026-10-15T08:28:09Z",
   "total": 31,
   "passed": 31,
   "failed": 0,
@@ -33,7 +33,7 @@
       "rule": "Un upload homonyme crée une version v+1 immuable sans écraser v1.",
       "screen": "Écran 2",
       "status": "passed",
-      "duration_ms": 0.35,
+      "duration_ms": 0.34,
       "details": "Version v2 créée avec empreinte cryptographique distincte (d2bae6b4...)."
     },
     {
@@ -143,7 +143,7 @@
       "rule": "Les chips respectent la nomenclature [Nom, p.X] sans rupture de texte ni layout shift.",
       "screen": "Écran 1",
       "status": "passed",
-      "duration_ms": 0.09,
+      "duration_ms": 0.07,
       "details": "Nomenclature conforme [Document, p.X] validée."
     },
     {
@@ -293,7 +293,7 @@
       "rule": "Zéro appel INSERT SQL en base, estimation VRAM pgvector HNSW exacte.",
       "screen": "Écran 2",
       "status": "passed",
-      "duration_ms": 0.01,
+      "duration_ms": 0.0,
       "details": "Simulation en mémoire de 12 chunks avec 0 écriture SQL."
     },
     {

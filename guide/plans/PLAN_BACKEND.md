@@ -31,42 +31,80 @@
 ### Jalon BDD & Socle de Sécurité RLS (Priorité 1)
 
 #### US-BACK-01 : Schéma Relationnel Initial, Extensions & Migrations Alembic
-- **User Story :** En tant qu'architecte BDD, je veux initialiser les extensions PostgreSQL (`vector`, `pgcrypto`) et les modèles SQLModel pour les tables maîtresses (`tenants`, `documents`, `document_versions`, `document_chunks`, `rag_presets`, `audit_logs`) via des migrations Alembic déterministes.
-- **Tâche PR :** `feat(db): initialize postgres schema with pgvector extension, sqlmodel models, and alembic migrations`
-- **Pattern & SOLID :** *Single Responsibility Principle*, *Data Mapper / ORM Pattern*.
-- **Critères d'Acceptation :**
-  - Activation de `CREATE EXTENSION IF NOT EXISTS vector;` et `pgcrypto`.
-  - Colonne `embedding vector(768)` indexée en HNSW (`USING hnsw (embedding vector_cosine_ops) WITH (m=16, ef_construction=64)`).
-  - Indexation GIN sur `metadata JSONB` des chunks.
-  - Table `audit_logs` horodatée pour la traçabilité intégrale des requêtes.
+- **Contexte & Enjeu :** La persistance relationnelle et vectorielle souveraine de RAGTIME repose sur PostgreSQL 16 avec l'extension `pgvector`. Les structures doivent garantir l'intégrité référentielle, le versioning immuable des documents (TNR-03) et l'indexation HNSW ultra-rapide des vecteurs 768d (nomic-embed-text).
+- **Tâche PR :** `feat(db): initialize postgres schema with pgvector extension, sqlmodel models, and deterministic alembic migrations`
+- **Pattern & SOLID :** *Single Responsibility Principle*, *Data Mapper / ORM Pattern*, *Repository Pattern*.
+- **Contrats & DTOs Pydantic v2 (backend/app/models/) :**
+  - `tenants.py` : `Tenant`, `TenantCreate`, `TenantRead`, `TenantUpdate`
+  - `documents.py` : `Document`, `DocumentVersion`, `DocumentRead`, `DocumentVersionRead`
+  - `chunks.py` : `DocumentChunk`, `DocumentChunkRead`, `ChunkMetadata`
+  - `presets.py` : `RagPreset`, `RagPresetCreate`, `RagPresetRead`, `RagPresetUpdate`
+  - `audit.py` : `QueryLog`, `QueryLogCreate`, `QueryLogRead`
+- **Critères d'Acceptation (Format Gherkin) :**
+  ```gherkin
+  Fonctionnalité: Initialisation du schéma de données et extensions vectorielles
+    Scénario: Application de la migration initiale Alembic
+      Étant donné une base de données PostgreSQL 16 vierge
+      Quand la migration Alembic upgrade head est exécutée
+      Alors les extensions "vector", "uuid-ossp", "pg_trgm" sont activées
+      Et les tables "tenants", "documents", "document_versions", "document_chunks", "rag_presets", "query_logs" existent
+      Et l'index HNSW "idx_chunks_embedding_hnsw" est créé sur document_chunks(embedding vector_cosine_ops)
+      Et l'index GIN "idx_chunks_metadata_gin" est créé sur document_chunks(metadata)
+  ```
 - **Tests Préalables (TDD - Pytest) :**
-  - `test_db_schema.py` : Vérifie la création correcte de toutes les tables et index HNSW.
-  - `tnr_db_migration.py` : Validation de l'idempotence des migrations Alembic `upgrade` et `downgrade`.
+  - `backend/tests/test_db_schema.py` : Vérifie la structure des modèles SQLModel, types de colonnes, contraintes CHECK et relations.
+  - `backend/tests/test_alembic_migrations.py` : Validation de l'idempotence des commandes `upgrade` et `downgrade` Alembic.
 
 #### US-BACK-02 : Activation et Enrôlement de la Row-Level Security (RLS) Multi-Tenant & Gestion du Pooling
-- **User Story :** En tant que garant de la souveraineté, je veux appliquer les politiques PostgreSQL RLS sur l'ensemble des tables métier basées sur `app.current_tenant_id` avec réinitialisation garantie à la libération de connexion et émission d'un en-tête d'information de session pour avertir l'utilisateur (popup UI) en cas de réinitialisation automatique.
+- **Contexte & Enjeu :** L'isolation multi-tenant de RAGTIME doit être inviolable au niveau SQL via Row-Level Security (TNR-02). Dans un pool de connexions asynchrones (`asyncpg`), la variable de session `app.current_tenant_id` risque d'être conservée si la connexion est réutilisée pour un autre tenant. Un protocole d'assainissement absolu (`RESET app.current_tenant_id`) est obligatoire, associé à une notification HTTP `X-Tenant-Session-Reset: true`.
 - **Tâche PR :** `feat(security-rls): enforce postgres row-level security policies across all tenant tables with safe connection pool reset`
-- **Pattern & SOLID :** *Defense-in-Depth*, *Fail-Safe Default Pattern*.
-- **Critères d'Acceptation :**
-  - `ALTER TABLE documents ENABLE ROW LEVEL SECURITY;`
-  - `ALTER TABLE document_chunks ENABLE ROW LEVEL SECURITY;`
-  - Politique : `CREATE POLICY tenant_isolation_policy ON document_chunks FOR ALL USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);`
-  - Gestionnaire de contexte asynchrone SQLAlchemy `async with tenant_context(tenant_id):` assurant la configuration et la réinitialisation systématique (`RESET app.current_tenant_id;`) à la libération de la connexion.
-  - Détection de rupture de contexte et transmission de l'en-tête `X-Tenant-Session-Reset: true` afin que le frontend affiche une notification explicite à l'utilisateur.
+- **Pattern & SOLID :** *Defense-in-Depth*, *Fail-Safe Default Pattern*, *Unit of Work Pattern*.
+- **Contrats & DTOs Pydantic v2 :**
+  - `tenant_context.py` : ContextManager `async with tenant_session(tenant_id):`
+  - Middleware `TenantContextMiddleware` capturant `X-Tenant-ID` et gérant les en-têtes de réponse.
+- **Critères d'Acceptation (Format Gherkin) :**
+  ```gherkin
+  Fonctionnalité: Étanchéité cryptographique et RLS multi-tenant
+    Scénario: Tentative de lecture cross-tenant sous politique RLS
+      Étant donné deux tenants "Tenant-Alpha" et "Tenant-Beta" disposant chacun de documents indexés
+      Quand une requête SQL SELECT est exécutée sous le contexte "Tenant-Alpha"
+      Alors seuls les enregistrements de "Tenant-Alpha" sont renvoyés
+      Et zéro chunk ou document de "Tenant-Beta" n'est accessible
+
+    Scénario: Assainissement obligatoire du pool de connexions
+      Étant donné une session asynchrone empruntée pour "Tenant-Alpha"
+      Quand la session est fermée ou restituée au pool asyncpg
+      Alors la commande "RESET app.current_tenant_id" est systématiquement invoquée
+      Et toute réutilisation de la connexion sans nouveau tenant_id échoue ou renvoie 0 ligne
+  ```
 - **Tests Préalables (TDD - Pytest) :**
-  - `test_rls_isolation.py` : Tentative d'extraction de données du tenant B avec le contexte du tenant A renvoyant 0 ligne.
-  - `tnr_tenant_isolation_sql.py` (TNR-02) : Test de non-régression validant l'étanchéité SQL absolue.
+  - `backend/tests/test_rls_isolation.py` : Insertion croisée de documents et chunks sur deux tenants, vérification de l'étanchéité totale des requêtes `SELECT`.
+  - `backend/tests/test_connection_pool_reset.py` : Vérifie que le gestionnaire de session exécute bien le `RESET` et transmet l'en-tête de détection.
 
 #### US-BACK-03 : Trigger SQL et Contrainte d'Immutabilité du Preset (TNR-18)
-- **User Story :** En tant qu'analyste RAG, je veux qu'un trigger PostgreSQL bloque toute mise à jour de la configuration de chunking ou d'embedding sur un preset actif si des vecteurs existent déjà pour ce tenant, forçant la création d'un preset $v+1$.
+- **Contexte & Enjeu :** L'invariant mathématique TNR-18 impose qu'un preset de chunking/embedding rattaché à un domaine possédant déjà au moins un document vectorisé soit scellé. Toute tentative de modification in-place des paramètres fondamentaux (`embedding_model`, `chunk_size`, `chunk_overlap`) doit être rejetée de façon déterministe par un trigger PostgreSQL et par la couche applicative.
 - **Tâche PR :** `feat(db-trigger): implement postgresql immutability trigger on rag_presets table for TNR-18`
-- **Pattern & SOLID :** *Immutability Pattern*, *Database Invariant Enforcement*.
-- **Critères d'Acceptation :**
-  - Trigger `trg_freeze_preset_on_ingested_docs` vérifiant `SELECT count(*) FROM document_chunks WHERE tenant_id = OLD.tenant_id`.
-  - Si le compte est $> 0$ et que `embedding_model`, `chunk_size` ou `chunk_overlap` est modifié, déclenchement d'une exception SQL `RAISE EXCEPTION 'CANNOT_MODIFY_FROZEN_PRESET'`.
+- **Pattern & SOLID :** *Immutability Pattern*, *Database Invariant Enforcement*, *Two-Phase Validation*.
+- **Contrats & Exceptions :**
+  - Exception SQL PostgreSQL : `CANNOT_MODIFY_FROZEN_PRESET`
+  - Exception HTTP FastAPI : `HTTP 409 Conflict` avec code d'erreur `FROZEN_PRESET_VIOLATION`
+- **Critères d'Acceptation (Format Gherkin) :**
+  ```gherkin
+  Fonctionnalité: Scellement immuable des Presets RAG (TNR-18)
+    Scénario: Modification d'un preset sur un domaine vierge
+      Étant donné un preset sur un tenant sans aucun document vectorisé (COUNT(document_chunks) == 0)
+      Quand l'administrateur met à jour chunk_size ou similarity_threshold
+      Alors la mise à jour est acceptée et enregistrée
+
+    Scénario: Tentative de modification in-place d'un preset sur domaine alimenté
+      Étant donné un preset sur un tenant possédant au moins un document vectorisé (COUNT(document_chunks) > 0)
+      Quand l'utilisateur tente de modifier embedding_model, chunk_size ou chunk_overlap
+      Alors le trigger SQL trg_freeze_preset_on_ingested_docs lève l'exception "CANNOT_MODIFY_FROZEN_PRESET"
+      Et l'API REST FastAPI retourne un code 409 Conflict
+  ```
 - **Tests Préalables (TDD - Pytest) :**
-  - `test_preset_immutability_trigger.py` : Tentative de modification directe d'un preset alimenté levant une exception SQL.
-  - `tnr_preset_freeze_sql.py` (TNR-18) : Validation de l'invariant mathématique scellé.
+  - `backend/tests/test_preset_immutability.py` : Test direct du trigger SQL et de la couche service avec domaines vierges vs alimentés.
+  - `scripts/tnr_definitions.py` (TNR-18) : Exécution conjointe dans la suite de non-régression globale.
 
 ---
 
@@ -197,10 +235,23 @@
 | **TNR-03** | Versionnage Documentaire | Incrémentation immuable en version $v+1$ sans écrasement |
 | **TNR-06** | Résilience SSE | Reprise fluide du streaming avec `Last-Event-ID` |
 | **TNR-07** | Fusion Hybride RRF | Application exacte de la formule $1/(60+r)$ |
+| **TNR-08** | Garde Dernier Domaine | Interdiction de suppression du dernier espace de travail |
 | **TNR-09** | Anti-Hallucination | Rejet formel d'inférence si `doc_count == 0` |
-| **TNR-10** | Cycle de Vie Domaines | Blocage strict de la suppression du dernier domaine |
+| **TNR-10** | Vérité Télémétrique | Métriques instrumentées réelles (TTFT, tokens/s, VRAM) |
 | **TNR-18** | Immutabilité Presets | Verrouillage scellé (Pydantic + Trigger SQL) si documents indexés |
 | **TNR-26** | Extraction Trafilatura | Élimination intégrale du boilerplate web en mode Précision |
 | **TNR-27** | Nettoyage Déterministe | Éradication des caractères invisibles et normalisation NFC |
+| **TNR-28** | Invariants Chunking | Ratio overlap < size / 2 validé par schéma |
 | **TNR-29** | Dry-Run Pré-Indexation | Zéro persistance en base lors de la simulation |
 | **TNR-31** | Presets Nommés | Synchronisation et affectation de preset par défaut par tenant |
+
+---
+
+## 4. Synthèse des Jalons Backend & État d'Avancement
+
+| Jalon Backend | Périmètre Métier & Sécurité | User Stories Couvertes | Statut |
+|---|---|---|---|
+| **Jalon 1 (Priorité 1)** | **Persistance Relationnelle & Vectorielle, RLS Multi-Tenant, Trigger TNR-18 & Socle API REST** | **US-BACK-01, US-BACK-02, US-BACK-03, US-BACK-10 (socle), US-BACK-12 (TNR-08)** |  **Terminé & Validé (18/18 Pytest OK, 31/31 TNR OK)** |
+| **Jalon 2 (Priorité 2)** | Pipeline d'Ingestion Documentaire, Trafilatura & Workers ARQ | US-BACK-04 (Upload), US-BACK-05 (Web Scrape), US-BACK-06 (ARQ), US-BACK-07 (Dry-Run) | Prêt pour implémentation |
+| **Jalon 3 (Priorité 3)** | Moteur de Recherche Hybride RRF, Re-ranking & Streaming SSE | US-BACK-08 (RRF HNSW/BM25), US-BACK-09 (SSE Streaming), US-BACK-11 (Conversations) | Planifié |
+

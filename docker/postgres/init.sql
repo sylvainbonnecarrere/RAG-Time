@@ -14,6 +14,19 @@ ALTER SYSTEM SET shared_buffers = '512MB';
 ALTER SYSTEM SET work_mem = '64MB';
 ALTER SYSTEM SET maintenance_work_mem = '256MB';
 
+-- 2.b Rôle Applicatif Souverain (Non-Superuser pour RLS Stricte)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'ragtime_app') THEN
+        CREATE ROLE ragtime_app WITH LOGIN PASSWORD 'ragtime_local_db_secret_pass' NOSUPERUSER NOBYPASSRLS;
+    END IF;
+END
+$$;
+GRANT ALL PRIVILEGES ON DATABASE ragtime_db TO ragtime_app;
+GRANT ALL ON SCHEMA public TO ragtime_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ragtime_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO ragtime_app;
+
 -- 3. Table des Tenants (Domaines d'Isolation Cryptographique et Relationnelle)
 CREATE TABLE IF NOT EXISTS tenants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
