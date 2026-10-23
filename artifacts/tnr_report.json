@@ -1,6 +1,6 @@
 {
   "suite": "RAGTIME TNR Full Matrix",
-  "timestamp": "2026-10-15T09:53:35Z",
+  "timestamp": "2026-10-23T09:33:28Z",
   "total": 31,
   "passed": 31,
   "failed": 0,
@@ -13,7 +13,7 @@
       "rule": "Aucun champ obligatoire ne peut être supprimé ou renommé sans incrément majeur.",
       "screen": "Écran 6",
       "status": "passed",
-      "duration_ms": 0.0,
+      "duration_ms": 0.01,
       "details": "Structure DTO validée sans rupture de champ obligatoire."
     },
     {
@@ -103,7 +103,7 @@
       "rule": "Les métriques TTFT, tokens/s et VRAM proviennent des capteurs réels, sans fausse télémétrie.",
       "screen": "Écran 5",
       "status": "passed",
-      "duration_ms": 0.01,
+      "duration_ms": 0.0,
       "details": "Mesure TTFT certifiée à 428.0 ms sans données aléatoires."
     },
     {
