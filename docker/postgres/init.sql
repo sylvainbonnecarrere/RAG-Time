@@ -156,3 +156,72 @@ VALUES
     ('22222222-2222-2222-2222-222222222222', 'Haute Précision Militaire', 1, 'markdown_headers', 384, 48, 0.780, 4, true, 'nomic-embed-text-v1.5', 768),
     ('33333333-3333-3333-3333-333333333333', 'Médical Granulaire Phrastique', 1, 'sentence', 256, 32, 0.750, 6, true, 'nomic-embed-text-v1.5', 768)
 ON CONFLICT DO NOTHING;
+
+-- 12. Politiques Row-Level Security (RLS - US-BACK-02 & US-SEC-01)
+-- Activation RLS stricte sur les tables multi-tenant (y compris table owner via FORCE)
+ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE documents FORCE ROW LEVEL SECURITY;
+ALTER TABLE document_chunks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE document_chunks FORCE ROW LEVEL SECURITY;
+ALTER TABLE rag_presets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE rag_presets FORCE ROW LEVEL SECURITY;
+ALTER TABLE query_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE query_logs FORCE ROW LEVEL SECURITY;
+
+-- Création des politiques de filtrage par tenant_id
+DROP POLICY IF EXISTS tenant_isolation_policy ON documents;
+CREATE POLICY tenant_isolation_policy ON documents
+    FOR ALL
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+DROP POLICY IF EXISTS tenant_isolation_policy ON document_chunks;
+CREATE POLICY tenant_isolation_policy ON document_chunks
+    FOR ALL
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+DROP POLICY IF EXISTS tenant_isolation_policy ON rag_presets;
+CREATE POLICY tenant_isolation_policy ON rag_presets
+    FOR ALL
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+DROP POLICY IF EXISTS tenant_isolation_policy ON query_logs;
+CREATE POLICY tenant_isolation_policy ON query_logs
+    FOR ALL
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+-- 13. Trigger d'Immutabilité du Preset sur Espace Alimenté (TNR-18 - US-BACK-03)
+CREATE OR REPLACE FUNCTION fn_freeze_preset_on_ingested_docs()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_chunk_count INT;
+BEGIN
+    -- Vérifier s'il existe des document_chunks pour ce tenant
+    SELECT count(*) INTO v_chunk_count
+    FROM document_chunks
+    WHERE tenant_id = OLD.tenant_id;
+
+    IF v_chunk_count > 0 THEN
+        -- Si altération in-place d'embedding, chunk_size ou chunk_overlap
+        IF (OLD.embedding_model IS DISTINCT FROM NEW.embedding_model) OR
+           (OLD.chunk_size IS DISTINCT FROM NEW.chunk_size) OR
+           (OLD.chunk_overlap IS DISTINCT FROM NEW.chunk_overlap) THEN
+            RAISE EXCEPTION 'CANNOT_MODIFY_FROZEN_PRESET: Espace alimente (% chunks). Invariant TNR-18 scelle.', v_chunk_count;
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_freeze_preset_on_ingested_docs ON rag_presets;
+CREATE TRIGGER trg_freeze_preset_on_ingested_docs
+BEFORE UPDATE ON rag_presets
+FOR EACH ROW
+EXECUTE FUNCTION fn_freeze_preset_on_ingested_docs();
+
+-- 14. Octroi des Droits sur les Tables et Séquences au Rôle Applicatif ragtime_app
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ragtime_app;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ragtime_app;
+GRANT ragtime_app TO ragtime;
+
+

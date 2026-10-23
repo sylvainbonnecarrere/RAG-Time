@@ -1,6 +1,6 @@
 {
   "suite": "RAGTIME TNR Full Matrix",
-  "timestamp": "2026-10-23T09:33:28Z",
+  "timestamp": "2026-10-23T10:36:35Z",
   "total": 31,
   "passed": 31,
   "failed": 0,
@@ -13,7 +13,7 @@
       "rule": "Aucun champ obligatoire ne peut être supprimé ou renommé sans incrément majeur.",
       "screen": "Écran 6",
       "status": "passed",
-      "duration_ms": 0.01,
+      "duration_ms": 0.0,
       "details": "Structure DTO validée sans rupture de champ obligatoire."
     },
     {
@@ -113,7 +113,7 @@
       "rule": "Les routes et vues RAG sont inaccessibles sans authentification valide active.",
       "screen": "Navigation Globale",
       "status": "passed",
-      "duration_ms": 0.0,
+      "duration_ms": 0.01,
       "details": "Invariant de la règle bloquante TNR-11 validé avec succès."
     },
     {
