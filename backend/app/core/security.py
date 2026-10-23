@@ -4,7 +4,7 @@ Conformité stricte SecNumCloud 3.2 et Recommandations ANSSI sur le hachage et l
 """
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 
 import jwt
 from app.core.config import settings
@@ -23,7 +23,7 @@ ph = PasswordHasher(
 # 2. Constantes pour les cookies de session sécurisés
 COOKIE_NAME = "ragtime_session"
 COOKIE_HTTPONLY = True
-COOKIE_SAMESITE = "strict"
+COOKIE_SAMESITE: Literal["lax", "strict", "none"] = "strict"
 # En environnement de développement, permet le fonctionnement HTTP local sans blocage navigateur
 COOKIE_SECURE = settings.RAGTIME_ENV.lower() not in ("development", "test", "testing")
 
