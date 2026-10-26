@@ -70,18 +70,33 @@
 
 ### Jalon Protection Ingestion & Assainissement (Priorité 2)
 
-#### US-SEC-04 : Filtre de Validation Anti-SSRF pour l'Ingestion d'URL Web (Trafilatura)
+#### US-SEC-04 : Filtre de Validation Anti-SSRF Déterministe pour l'Ingestion d'URL Web (Trafilatura) [STATUT : VALIDÉ (JALON 2)]
 - **User Story :** En tant qu'analyste sécurité, je veux interdire toute tentative d'ingestion d'URL pointant vers des réseaux internes, la boucle locale ou des services de métadonnées d'infrastructure afin de parer les attaques SSRF (*Server-Side Request Forgery*).
 - **Tâche PR :** `security(anti-ssrf): deterministic IP resolution filter rejecting private networks and cloud metadata`
-- **Pattern & SOLID :** *Filter Pattern*, *Defensive Whitelist*.
-- **Critères d'Acceptation :**
-  - Résolution DNS préalable de l'hôte avant toute requête HTTP.
-  - Rejet formel des adresses de bouclage : `127.0.0.0/8`, `::1`, `localhost`.
-  - Rejet des plages privées RFC 1918 : `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`.
-  - Rejet des métadonnées cloud : `169.254.169.254`.
+- **Menace STRIDE Couverte :** *Elevation of Privilege* (Élévation de privilèges via pivot réseau interne) & *Information Disclosure* (Exfiltration de métadonnées d'infrastructure).
+- **Pattern & SOLID :** *Filter Pattern*, *Defensive Whitelist*, *Single Responsibility Principle*.
+- **Règles d'Or Bloquantes :**
+  1. Whitelist stricte de schémas autorisés : uniquement `http` et `https` (rejet immédiat de `file://`, `gopher://`, `ftp://`, etc.).
+  2. Résolution DNS synchrone systématique avant appel réseau pour déjouer le DNS Rebinding.
+  3. Rejet catégorique de toute adresse IP privée (RFC 1918), loopback (`127.0.0.0/8`, `::1`), lien-local (`169.254.0.0/16`, AWS/GCP metadata `169.254.169.254`), multicast et réservée.
+  4. Détection et neutralisation des adresses obfusquées (octal, décimal, hexadécimal, dotted hex).
+- **Critères Gherkin d'Acceptation :**
+  - *Scénario 1 (Rejet Loopback & Intranet) :*
+    - *Given* une URL d'ingestion pointant vers `http://localhost:8000`, `http://127.0.0.1/admin` ou `http://192.168.1.1/router`
+    - *When* le validateur `validate_url_anti_ssrf` est exécuté
+    - *Then* `is_valid` est `False` et une erreur explicite est renvoyée sans émettre de requête externe.
+  - *Scénario 2 (Rejet Metadata Cloud) :*
+    - *Given* une URL pointant vers `http://169.254.169.254/latest/meta-data/`
+    - *When* le validateur `validate_url_anti_ssrf` est exécuté
+    - *Then* `is_valid` est `False` et le blocage de lien-local est consigné.
+  - *Scénario 3 (Acceptation URL Web Légitime) :*
+    - *Given* une URL publique résolvant vers une IP publique routable (ex: `https://en.wikipedia.org/wiki/RAG`)
+    - *When* le validateur `validate_url_anti_ssrf` est exécuté
+    - *Then* `is_valid` est `True` et l'IP publique résolue est renvoyée.
 - **Tests Préalables (TDD - Pytest) :**
-  - `test_anti_ssrf_filter.py` : Rejet de 15 variantes d'URL manipulatrices (décimales, hexadécimales, redirections locales).
-  - `tnr_trafilatura_anti_ssrf.py` (TNR-26) : Non-régression sur le blocage SSRF.
+  - `backend/tests/test_anti_ssrf_filter.py` : 58 cas de test au vert couvrant les schémas non-HTTP, loopback, RFC 1918, métadonnées cloud, obfuscation décimale/hex, DNS rebinding et multihoming.
+  - Invariant `TNR-26` validé à 100%.
+- **Preuve d'Audit & Validation :** Module [backend/app/core/anti_ssrf.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/core/anti_ssrf.py) et re-export dans [backend/app/core/security.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/core/security.py) (`validate_url_anti_ssrf`, `assert_url_safe`, `SSRFValidationError`). Couverture de 86% sur le module.
 
 #### US-SEC-05 : Audit & Durcissement de l'Assainissement Déterministe Anti-XSS
 - **User Story :** En tant qu'auditeur applicatif, je veux auditer le pipeline d'assainissement déterministe pour certifier la neutralisation absolue des balises `<script>`, `onerror`, `javascript:` et caractères invisibles dans les extraits Markdown affichés dans l'UI.

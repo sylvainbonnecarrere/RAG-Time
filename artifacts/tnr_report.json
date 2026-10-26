@@ -1,6 +1,6 @@
 {
   "suite": "RAGTIME TNR Full Matrix",
-  "timestamp": "2026-10-23T10:36:35Z",
+  "timestamp": "2026-10-23T11:42:30Z",
   "total": 31,
   "passed": 31,
   "failed": 0,
@@ -13,7 +13,7 @@
       "rule": "Aucun champ obligatoire ne peut être supprimé ou renommé sans incrément majeur.",
       "screen": "Écran 6",
       "status": "passed",
-      "duration_ms": 0.0,
+      "duration_ms": 0.01,
       "details": "Structure DTO validée sans rupture de champ obligatoire."
     },
     {
@@ -33,7 +33,7 @@
       "rule": "Un upload homonyme crée une version v+1 immuable sans écraser v1.",
       "screen": "Écran 2",
       "status": "passed",
-      "duration_ms": 0.04,
+      "duration_ms": 0.19,
       "details": "Version v2 créée avec empreinte cryptographique distincte (d2bae6b4...)."
     },
     {
@@ -73,7 +73,7 @@
       "rule": "Neutralisation absolue des balises <script>, onerror, javascript: dans les extraits.",
       "screen": "Écran 1 & 2",
       "status": "passed",
-      "duration_ms": 0.05,
+      "duration_ms": 0.12,
       "details": "Balises script et gestionnaires d'événements neutralisés."
     },
     {
@@ -143,7 +143,7 @@
       "rule": "Les chips respectent la nomenclature [Nom, p.X] sans rupture de texte ni layout shift.",
       "screen": "Écran 1",
       "status": "passed",
-      "duration_ms": 0.07,
+      "duration_ms": 0.13,
       "details": "Nomenclature conforme [Document, p.X] validée."
     },
     {

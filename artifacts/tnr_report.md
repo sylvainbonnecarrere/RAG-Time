@@ -1,6 +1,6 @@
 # Rapport de Certification des Tests de Non-Régression (TNR) — RAGTIME
 
-> **Date d'exécution :** 2026-10-23T10:36:35Z  
+> **Date d'exécution :** 2026-10-23T11:42:30Z  
 > **Statut Global :** **SUCCÈS (100% Validé)**  
 > **Score :** 31 / 31 (100.0%)
 
@@ -8,20 +8,20 @@
 
 | ID | Statut | Nom du Test | Catégorie | Écran Lié | Durée |
 |---|---|---|---|---|---|
-| **TNR-01** | ✅ PASS | Contrat OpenAPI : Non-Régression de Schéma Binaire | Contrats API | Écran 6 | 0.0 ms |
+| **TNR-01** | ✅ PASS | Contrat OpenAPI : Non-Régression de Schéma Binaire | Contrats API | Écran 6 | 0.01 ms |
 | **TNR-02** | ✅ PASS | Isolation Multi-Tenant Stricte & Purge Mémoire Cross-Tenant | Sécurité & Isolation | Barre de Domaine & Écran 6 | 0.0 ms |
-| **TNR-03** | ✅ PASS | Versionnage Documentaire Immuable (v+1 avec nouveau SHA-256) | Gestion Documentaire | Écran 2 | 0.04 ms |
+| **TNR-03** | ✅ PASS | Versionnage Documentaire Immuable (v+1 avec nouveau SHA-256) | Gestion Documentaire | Écran 2 | 0.19 ms |
 | **TNR-04** | ✅ PASS | Intégrité des Métadonnées JSONB des Chunks pgvector | Audit Vectoriel | Écran 4 & Tiroir | 0.0 ms |
 | **TNR-05** | ✅ PASS | Immutabilité des Presets RAG Actifs (Révision Distincte) | Presets RAG | Écran 3 | 0.0 ms |
 | **TNR-06** | ✅ PASS | Résilience Streaming SSE & Reconnexion Last-Event-ID | Streaming SSE | Écran 1 | 0.0 ms |
-| **TNR-07** | ✅ PASS | Assainissement Déterministe Anti-XSS (DOMPurify & Regex) | Sécurité Applicative | Écran 1 & 2 | 0.05 ms |
+| **TNR-07** | ✅ PASS | Assainissement Déterministe Anti-XSS (DOMPurify & Regex) | Sécurité Applicative | Écran 1 & 2 | 0.12 ms |
 | **TNR-08** | ✅ PASS | Garde de Sécurité : Interdiction de Suppression du Dernier Domaine | Gouvernance | Barre de Domaine | 0.0 ms |
 | **TNR-09** | ✅ PASS | Garde Éthique Anti-Hallucination sur Domaine Vierge (doc_count == 0) | Éthique IA | Écran 1 (Onboarding) | 0.0 ms |
 | **TNR-10** | ✅ PASS | Vérité Télémétrique du Cluster RAG (Métriques Réelles Instrumentées) | Observabilité MLOps | Écran 5 | 0.0 ms |
 | **TNR-11** | ✅ PASS | Sécurité Navigation & Guard d'Authentification RBAC | Contrôle d'Accès | Navigation Globale | 0.01 ms |
 | **TNR-12** | ✅ PASS | Complexité des Mots de Passe Conforme aux Recommandations ANSSI | Sécurité Accès | Auth Modal | 0.0 ms |
 | **TNR-13** | ✅ PASS | Purge Mémoire & SessionStorage à la Déconnexion | Sécurité Données | Navbar | 0.0 ms |
-| **TNR-14** | ✅ PASS | Formatage et Normalisation des Chips de Citations [Document, p.X] | Affichage Citations | Écran 1 | 0.07 ms |
+| **TNR-14** | ✅ PASS | Formatage et Normalisation des Chips de Citations [Document, p.X] | Affichage Citations | Écran 1 | 0.13 ms |
 | **TNR-15** | ✅ PASS | Rendu DOM Propre sans Warning d'Hydratation React | Qualité Frontend | Ensemble des Vues | 0.0 ms |
 | **TNR-16** | ✅ PASS | Bornes de Pagination Dynamique Universelle (page <= max_pages) | Ergonomie Tableaux | Écrans 2, 4, 5 | 0.0 ms |
 | **TNR-17** | ✅ PASS | Traçabilité des Exports Multi-Formats (Markdown, JSON, TXT) | Export Données | Écrans 1, 4, 5 | 0.0 ms |

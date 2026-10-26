@@ -61,3 +61,22 @@ def decode_access_token(token: str) -> dict[str, Any] | None:
         return payload
     except (jwt.PyJWTError, ValueError):
         return None
+
+
+# 3. Exportation du Validateur Anti-SSRF Déterministe (US-SEC-04 & TNR-26)
+from app.core.anti_ssrf import SSRFValidationError, assert_url_safe, validate_url_anti_ssrf
+
+__all__ = [
+    "COOKIE_HTTPONLY",
+    "COOKIE_NAME",
+    "COOKIE_SAMESITE",
+    "COOKIE_SECURE",
+    "SSRFValidationError",
+    "assert_url_safe",
+    "create_access_token",
+    "decode_access_token",
+    "get_password_hash",
+    "validate_url_anti_ssrf",
+    "verify_password",
+]
+
