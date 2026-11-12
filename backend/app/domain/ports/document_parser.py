@@ -42,3 +42,4 @@ class DocumentParserPort(ABC):
         Doit garantir le confinement réseau et la protection anti-SSRF préalable.
         """
         ...
+

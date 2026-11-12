@@ -39,3 +39,4 @@ class TextCleanerPort(ABC):
         4. Normalisation et condensation des espaces et sauts de ligne
         """
         ...
+

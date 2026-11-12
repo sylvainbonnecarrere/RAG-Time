@@ -1,6 +1,6 @@
 # Rapport de Certification des Tests de Non-Régression (TNR) — RAGTIME
 
-> **Date d'exécution :** 2026-11-12T10:57:15Z  
+> **Date d'exécution :** 2026-11-12T11:06:29Z  
 > **Statut Global :** **SUCCÈS (100% Validé)**  
 > **Score :** 31 / 31 (100.0%)
 
@@ -9,7 +9,7 @@
 | ID | Statut | Nom du Test | Catégorie | Écran Lié | Durée |
 |---|---|---|---|---|---|
 | **TNR-01** | ✅ PASS | Contrat OpenAPI : Non-Régression de Schéma Binaire | Contrats API | Écran 6 | 0.0 ms |
-| **TNR-02** | ✅ PASS | Isolation Multi-Tenant Stricte & Purge Mémoire Cross-Tenant | Sécurité & Isolation | Barre de Domaine & Écran 6 | 0.01 ms |
+| **TNR-02** | ✅ PASS | Isolation Multi-Tenant Stricte & Purge Mémoire Cross-Tenant | Sécurité & Isolation | Barre de Domaine & Écran 6 | 0.0 ms |
 | **TNR-03** | ✅ PASS | Versionnage Documentaire Immuable (v+1 avec nouveau SHA-256) | Gestion Documentaire | Écran 2 | 0.04 ms |
 | **TNR-04** | ✅ PASS | Intégrité des Métadonnées JSONB des Chunks pgvector | Audit Vectoriel | Écran 4 & Tiroir | 0.0 ms |
 | **TNR-05** | ✅ PASS | Immutabilité des Presets RAG Actifs (Révision Distincte) | Presets RAG | Écran 3 | 0.0 ms |

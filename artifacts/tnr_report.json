@@ -1,6 +1,6 @@
 {
   "suite": "RAGTIME TNR Full Matrix",
-  "timestamp": "2026-11-12T10:57:15Z",
+  "timestamp": "2026-11-12T11:06:29Z",
   "total": 31,
   "passed": 31,
   "failed": 0,
@@ -23,7 +23,7 @@
       "rule": "Le basculement de tenant purge instantanément tous les caches mémoire et stores locaux.",
       "screen": "Barre de Domaine & Écran 6",
       "status": "passed",
-      "duration_ms": 0.01,
+      "duration_ms": 0.0,
       "details": "Étanchéité confirmée : zéro partage de clé de cache entre domaines distincts."
     },
     {

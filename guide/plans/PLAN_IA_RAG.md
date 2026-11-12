@@ -59,18 +59,19 @@
   - Invariant `TNR-27` validé à 100%.
   - Implémentation : [backend/app/domain/ports/text_cleaner.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/domain/ports/text_cleaner.py) et [backend/app/infrastructure/rag/deterministic_cleaner.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/infrastructure/rag/deterministic_cleaner.py).
 
-#### US-IA-03 : Implémentation du Port `ChunkerPort` & Partitionnement Multi-Stratégies
+#### US-IA-03 : Implémentation du Port `ChunkerPort` & Partitionnement Multi-Stratégies [STATUT : VALIDÉ (JALON 2)]
 - **User Story :** En tant qu'analyste RAG, je veux segmenter les documents selon l'une des 3 stratégies configurées sur le preset actif (Fenêtre glissante avec overlap, Découpage phrastique respectant la grammaire française, ou Sections Markdown AST avec préfixe hiérarchique) afin d'isoler des unités sémantiques cohérentes.
 - **Tâche PR :** `feat(rag-chunking): multi-strategy chunker port implementation (sliding window, sentence boundary, markdown AST)`
 - **Pattern & SOLID :** *Strategy Pattern*, *Factory Pattern*.
 - **Critères d'Acceptation :**
-  - *Fenêtre Glissante :* Respect strict de l'invariant `chunk_overlap < chunk_size / 2`.
+  - *Fenêtre Glissante :* Respect strict de l'invariant `chunk_overlap < chunk_size / 2` (`TNR-28`).
   - *Phrastique Sémantique :* Découpage sur ponctuation forte sans casser les abréviations françaises courantes (M., Mme., Dr., al., etc.).
-  - *Sections Markdown :* Découpage sur les titres `#` avec injection obligatoire du fil d'Ariane au début du chunk (`[Titre > Sous-titre] Contenu...`).
-  - Chaque chunk se voit attribuer un hash cryptographique SHA-256 de son contenu propre.
-- **Tests Préalables (TDD - Pytest) :**
-  - `test_chunking_strategies.py` : Validation des 3 algorithmes sur corpus représentatifs.
-  - `tnr_chunking_invariants.py` (TNR-28, TNR-30) : Validation du préfixage contextuel et du contrôle d'overlap.
+  - *Sections Markdown :* Découpage sur les titres `#` avec injection obligatoire du fil d'Ariane au début du chunk (`[Titre > Sous-titre] Contenu...`) (`TNR-30`).
+  - Chaque chunk se voit attribuer un hash cryptographique SHA-256 de son contenu propre (`TNR-04`).
+- **Tests Préalables & Preuve de Validation :**
+  - `backend/tests/test_chunking_strategies.py` : 5 tests unitaires validant l'invariant `overlap < size / 2`, la préservation des abréviations françaises, le fil d'Ariane hiérarchique Markdown AST, l'empreinte SHA-256 (64 hex) et la gestion des cas limites.
+  - Invariants `TNR-28` et `TNR-30` validés à 100%.
+  - Implémentation : [backend/app/domain/ports/chunker.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/domain/ports/chunker.py) et [backend/app/infrastructure/rag/multi_strategy_chunker.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/infrastructure/rag/multi_strategy_chunker.py).
 
 ---
 
