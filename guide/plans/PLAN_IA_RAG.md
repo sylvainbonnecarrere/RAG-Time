@@ -31,29 +31,33 @@
 
 ### Jalon Prétraitement Documentaire & Hygiène (Priorité 1)
 
-#### US-IA-01 : Pipeline d'Extraction Trafilatura 2.0 & Conversion Tabulaire Markdown
+#### US-IA-01 : Pipeline d'Extraction Trafilatura 2.0 & Conversion Tabulaire Markdown [STATUT : VALIDÉ (JALON 2)]
 - **User Story :** En tant qu'ingénieur RAG, je veux extraire le texte principal des pages web et documents HTML via Trafilatura 2.0 en éliminant 100% du boilerplate (bannières, scripts, menus) et en convertissant fidèlement les tableaux HTML en Markdown tabulaire pour préserver le contexte des données chiffrées.
 - **Tâche PR :** `feat(rag-trafilatura): integrate Trafilatura 2.0 content extraction with markdown table formatter`
-- **Pattern & SOLID :** *Strategy Pattern* (`IContentExtractor`), *Single Responsibility Principle*.
+- **Pattern & SOLID :** *Strategy Pattern* (`DocumentParserPort`), *Single Responsibility Principle*.
 - **Critères d'Acceptation :**
   - Extraction avec `favor_precision=True` par défaut (mode recommandé RAG).
   - Préservation des balises de tableaux HTML transformées en Markdown standard (`| Col 1 | Col 2 |`).
-  - Extraction conjointe des métadonnées canoniques (titre, date de publication, auteur).
-- **Tests Préalables (TDD - Pytest) :**
-  - `test_trafilatura_extraction.py` : Test sur fixture HTML avec bannières publicitaires prouvant l'élimination du bruit périphérique.
-  - `tnr_trafilatura_tables.py` (TNR-26) : Vérification de la structure des tableaux Markdown extraits.
+  - Extraction conjointe des métadonnées canoniques (titre, date de publication, auteur, langue).
+  - Confinement réseau strict via `assert_url_safe` neutralisant toute attaque SSRF en amont de l'appel réseau.
+- **Tests Préalables & Preuve de Validation :**
+  - `backend/tests/test_trafilatura_extractor.py` : 5 tests validant l'élimination du bruit, conversion de table Markdown, interception SSRF, et fallback gracieux.
+  - Invariant `TNR-26` validé à 100%.
+  - Implémentation : [backend/app/domain/ports/document_parser.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/domain/ports/document_parser.py) et [backend/app/infrastructure/rag/trafilatura_extractor.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/infrastructure/rag/trafilatura_extractor.py).
 
-#### US-IA-02 : Pipeline Déterministe d'Assainissement (NFC & Invisibles)
+#### US-IA-02 : Pipeline Déterministe d'Assainissement (NFC & Invisibles) [STATUT : VALIDÉ (JALON 2)]
 - **User Story :** En tant qu'ingénieur de données, je veux exécuter une passe de nettoyage mécanique déterministe en 4 étapes ordonnées (Unicode NFC $\to$ Purge balises résiduelles $\to$ Éradication des caractères invisibles $\to$ Normalisation des espaces) pour empêcher les divergences vectorielles indétectables à l'œil.
 - **Tâche PR :** `feat(rag-cleaning): deterministic mechanical cleaning pipeline with unicode NFC and zero-width purge`
 - **Pattern & SOLID :** *Pipeline Pattern*, *Interceptor Pattern*.
 - **Critères d'Acceptation :**
   - Normalisation Unicode canonique composée (`unicodedata.normalize('NFC', text)`).
   - Purge stricte des caractères invisibles corrupteurs : `\u200B` à `\u200F` (zero-width), `\u202A` à `\u202E` (directionnels), `\uFEFF` (BOM), `\u00AD` (soft hyphen).
-  - Préservation intégrale des formules scientifiques et mathématiques (ex: `p < 0.05`).
-- **Tests Préalables (TDD - Pytest) :**
-  - `test_cleaning_pipeline.py` : Ingestion de textes avec décomposition NFD et caractères zero-width vérifiant l'égalité vectorielle post-nettoyage.
-  - `tnr_cleaning_invisibles.py` (TNR-27) : Non-régression sur l'éradication des invisibles.
+  - Préservation intégrale des formules scientifiques et mathématiques (ex: `p < 0.05` et `s > 0.75`).
+  - Condensation des espaces multiples et normalisation des paragraphes.
+- **Tests Préalables & Preuve de Validation :**
+  - `backend/tests/test_cleaning_pipeline.py` : 5 tests unitaires vérifiant l'unification NFC, la purge de 5+ caractères invisibles, la conservation de formules mathématiques et la condensation des espaces.
+  - Invariant `TNR-27` validé à 100%.
+  - Implémentation : [backend/app/domain/ports/text_cleaner.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/domain/ports/text_cleaner.py) et [backend/app/infrastructure/rag/deterministic_cleaner.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/infrastructure/rag/deterministic_cleaner.py).
 
 #### US-IA-03 : Implémentation du Port `ChunkerPort` & Partitionnement Multi-Stratégies
 - **User Story :** En tant qu'analyste RAG, je veux segmenter les documents selon l'une des 3 stratégies configurées sur le preset actif (Fenêtre glissante avec overlap, Découpage phrastique respectant la grammaire française, ou Sections Markdown AST avec préfixe hiérarchique) afin d'isoler des unités sémantiques cohérentes.
