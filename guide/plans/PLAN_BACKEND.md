@@ -110,30 +110,33 @@
 
 ### Jalon Ingestion Asynchrone & Workers ARQ (Priorité 2)
 
-#### US-BACK-04 : Endpoint d'Upload Documentaire & File d'Attente Redis / ARQ
-- **User Story :** En tant qu'utilisateur téléversant des documents, je veux un endpoint `POST /api/v1/documents/upload` qui réceptionne le fichier multipart, calcule et valide le SHA-256 côté serveur, enregistre le document en statut `pending` et enrôle un job d'ingestion dans Redis / ARQ.
+#### US-BACK-04 : Endpoint d'Upload Documentaire & File d'Attente Redis / ARQ [STATUT : VALIDÉ (JALON 2)]
+- **User Story :** En tant qu'utilisateur téléversant des documents, je veux un endpoint `POST /api/v1/tenants/{tenant_id}/documents/upload` qui réceptionne le fichier multipart, calcule et valide le SHA-256 côté serveur, enregistre le document en statut `pending`, gère le versionnage incrémental immuable v+1 (TNR-03) et enrôle un job d'ingestion dans Redis / ARQ.
 - **Tâche PR :** `feat(ingestion-api): multipart upload endpoint with sha256 checksum and ARQ job dispatching`
 - **Pattern & SOLID :** *Command Pattern*, *Producer-Consumer Pattern*.
 - **Critères d'Acceptation :**
-  - Vérification des Magic Bytes (`magicBytes.ts` côté backend avec `python-magic`) rejetant les fichiers non autorisés.
-  - Calcul du hash SHA-256 et comparaison avec le hash fourni par le client.
-  - Enrôlement dans la queue Redis `arq:queue` avec identifiant `job_id` (UUID v4).
-  - Retour HTTP 202 Accepted avec DTO `AsyncIngestionJobProgress`.
-- **Tests Préalables (TDD - Pytest) :**
-  - `test_upload_endpoint.py` : Téléversement d'un PDF valide renvoyant le code 202 et un job UUID.
-  - `tnr_document_versioning_backend.py` (TNR-03) : Upload homonyme créant une version $v+1$ sans écrasement.
+  - Validation des types MIME et extensions autorisées (.pdf, .md, .txt, .sql).
+  - Calcul et vérification du checksum SHA-256 serveur/client.
+  - Incrémentation automatique de version $v+1$ en cas d'homonymie sans écrasement (`TNR-03`).
+  - Enrôlement asynchrone dans Redis / ARQ (`arq:queue`) avec `job_id` UUID v4.
+  - Réponse HTTP 202 Accepted avec `DocumentUploadResponse` (`document` et `job`).
+- **Tests Préalables & Preuve de Validation :**
+  - `backend/tests/test_upload_endpoint.py` : 4 tests validant l'upload nominal 202, le versionnage $v+1$ (TNR-03), le rejet d'extensions non autorisées et le contrôle d'intégrité SHA-256.
+  - Implémentation : [backend/app/api/v1/endpoints/documents.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/api/v1/endpoints/documents.py), [backend/app/models/documents.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/models/documents.py) et [backend/app/core/worker.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/core/worker.py).
 
-#### US-BACK-05 : Endpoint d'Ingestion Web & Scraper Trafilatura 2.0 Sécurisé
-- **User Story :** En tant qu'utilisateur important un article web, je veux soumettre une URL sur `POST /api/v1/documents/web-scrape` pour lancer l'extraction Trafilatura avec protection anti-SSRF et conversion en Markdown tabulaire.
+#### US-BACK-05 : Endpoint d'Ingestion Web & Scraper Trafilatura 2.0 Sécurisé [STATUT : VALIDÉ (JALON 2)]
+- **User Story :** En tant qu'utilisateur important un article web, je veux soumettre une URL sur `POST /api/v1/tenants/{tenant_id}/documents/scrape` pour lancer l'extraction Trafilatura avec protection anti-SSRF bloquante immédiate et conversion en Markdown tabulaire.
 - **Tâche PR :** `feat(web-scrape): secure Trafilatura extraction endpoint with anti-SSRF filter and markdown table formatting`
 - **Pattern & SOLID :** *Adapter Pattern*, *Defensive Programming*.
 - **Critères d'Acceptation :**
-  - Résolution DNS stricte de l'URL cible : rejet formel des IP de bouclage (`127.0.0.1`), plages privées RFC 1918 et adresses de métadonnées (`169.254.169.254`).
-  - Appel de Trafilatura en mode `favor_precision=True` avec support de `lxml-html-clean`.
-  - Capture des métadonnées (titre canonique, date, auteur).
-- **Tests Préalables (TDD - Pytest) :**
-  - `test_anti_ssrf.py` : Tentatives de requêtes vers `http://localhost:8000` et `http://192.168.1.1` rejetées avec HTTP 400.
-  - `tnr_trafilatura_extraction.py` (TNR-26) : Vérification de la conversion de tableaux HTML en tableaux Markdown.
+  - Filtrage anti-SSRF bloquant en entrée d'API : rejet strict de loopback (`127.0.0.1`, `localhost`), plages privées RFC 1918 et cloud metadata (`169.254.169.254`).
+  - Création du document `html_url` et version v1 avec hash initial de l'URL.
+  - Enrôlement asynchrone dans ARQ avec exécution de la chaîne Trafilatura 2.0 (`favor_precision=True`), assainissement déterministe NFC et découpage.
+  - Réponse HTTP 202 Accepted avec `DocumentUploadResponse`.
+- **Tests Préalables & Preuve de Validation :**
+  - `backend/tests/test_scrape_endpoint.py` : 8 tests validant l'URL externe sûre (HTTP 202) et le blocage formel de 7 vecteurs d'attaques SSRF (HTTP 400).
+  - Invariants `TNR-26` et `TNR-27` préservés.
+  - Implémentation : [backend/app/api/v1/endpoints/documents.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/api/v1/endpoints/documents.py) et [backend/app/core/anti_ssrf.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/core/anti_ssrf.py).
 
 #### US-BACK-06 : Worker ARQ d'Ingestion (Extraction, Nettoyage NFC, Chunking & Indexation pgvector)
 - **User Story :** En tant que worker asynchrone ARQ, je veux dépiler les tâches d'ingestion et exécuter séquentiellement le nettoyage déterministe (Unicode NFC, éradication d'invisibles), le découpage selon la stratégie du preset actif, le calcul des embeddings nomic-embed et l'insertion par lots dans `document_chunks`.

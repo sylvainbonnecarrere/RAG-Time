@@ -1,11 +1,13 @@
 """
 RAGTIME Backend — Modèles SQLModel Document et DocumentVersion (TNR-03 Immuabilité)
+Fournit également les DTOs Pydantic pour l'upload multipart, le web-scrape et les jobs ARQ.
 """
 
 import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from pydantic import BaseModel, HttpUrl
 from sqlmodel import JSON, Column, Field, SQLModel
 
 
@@ -29,14 +31,6 @@ class Document(DocumentBase, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class DocumentRead(DocumentBase):
-    id: uuid.UUID
-    tenant_id: uuid.UUID
-    cleaning_stats: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime
-    updated_at: datetime
-
-
 class DocumentVersionBase(SQLModel):
     version_number: int = Field(description="Numéro séquentiel v1, v2...")
     sha256_checksum: str = Field(max_length=64, description="Empreinte SHA-256 certifiée")
@@ -58,3 +52,39 @@ class DocumentVersionRead(DocumentVersionBase):
     id: uuid.UUID
     document_id: uuid.UUID
     created_at: datetime
+
+
+class DocumentRead(DocumentBase):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    cleaning_stats: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
+    versions: list[DocumentVersionRead] = Field(default_factory=list)
+
+
+# =========================================================================
+# DTOs pour Ingestion Asynchrone ARQ, Upload Multipart & Web Scrape
+# =========================================================================
+
+class IngestionJobRead(BaseModel):
+    job_id: uuid.UUID
+    tenant_id: uuid.UUID
+    document_id: uuid.UUID
+    document_name: str
+    version: int
+    status: str = "pending"
+    progress_pct: int = 0
+    step_description: str = "Enregistré en file d'ingestion asynchrone ARQ"
+    sha256: str
+    created_at: datetime
+
+
+class DocumentUploadResponse(BaseModel):
+    document: DocumentRead
+    job: IngestionJobRead
+
+
+class DocumentScrapeRequest(BaseModel):
+    url: HttpUrl
+    description: str | None = None
