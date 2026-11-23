@@ -129,17 +129,20 @@
   - `test_ollama_streaming.py` : Streaming de tokens avec mock local mesurant le TTFT et le débit.
   - `tnr_no_fake_cot.py` (TNR-10) : Vérification de l'absence de fausses chaînes de pensée.
 
-#### US-IA-08 : Moteur de Simulation Dry-Run Pré-Indexation (Calcul Tokens & VRAM)
+#### US-IA-08 : Moteur de Simulation Dry-Run Pré-Indexation (Calcul Tokens & VRAM) [STATUT : VALIDÉ (JALON 2)]
 - **User Story :** En tant qu'analyste RAG, je veux exécuter une simulation complète en mémoire sur un document brut pour auditer le partitionnement, la répartition des tokens et l'empreinte VRAM pgvector HNSW avant de déclencher la vectorisation définitive.
 - **Tâche PR :** `feat(rag-dryrun-engine): in-memory pre-indexing dry run engine with token histogram and HNSW VRAM budget calculator`
-- **Pattern & SOLID :** *Command Pattern*, *Pure Function Calculation*.
+- **Pattern & SOLID :** *Command Pattern*, *Pure Function Calculation*, *Strategy Pattern*.
 - **Critères d'Acceptation :**
-  - Exécution en mémoire sans écriture en base (zéro persistance SQL).
-  - Calcul de l'histogramme de taille des chunks (min, médiane, max).
-  - Formule d'estimation VRAM : $\text{VRAM} = \text{chunks} \times (\text{dim} \times 4 \text{ octets}) \times 1.4$ (surcharge index HNSW).
-- **Tests Préalables (TDD - Pytest) :**
-  - `test_dryrun_calculator.py` : Validation arithmétique de l'estimation mémoire sur corpus de test.
-  - `tnr_dryrun_isolation.py` (TNR-29) : Isolation totale sans effet de bord.
+  - Exécution en mémoire sans écriture en base (zéro persistance SQL - `TNR-29`).
+  - Calcul de l'histogramme fin de taille des chunks (min, médiane, max, percentiles p25/p75 et répartition par tranches).
+  - Audit d'équilibre sémantique (détection des anomalies < 60 tokens et > 800 tokens).
+  - Formule d'estimation VRAM pgvector HNSW : $\text{raw\_bytes} = \text{chunks} \times \text{dim} \times 4 \text{ octets}$, $\text{hnsw\_bytes} = \text{round}(\text{raw\_bytes} \times 1.5)$, $\text{total\_vram} = \text{raw\_bytes} + \text{hnsw\_bytes}$.
+- **Tests Préalables & Preuve de Validation :**
+  - `backend/tests/test_dryrun_calculator.py` : 4 tests validant la formule VRAM (768d et 1024d), l'histogramme et quantiles, l'audit d'anomalies sémantiques et la simulation in-memory complète.
+  - `backend/tests/test_dry_run_endpoint.py` : 3 tests d'intégration HTTP validant l'absence totale de persistance en base (`COUNT(documents) == 0` et `COUNT(document_chunks) == 0`).
+  - Invariant `TNR-29` validé à 100%.
+  - Implémentation : [backend/app/domain/ports/dry_run.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/domain/ports/dry_run.py) et [backend/app/infrastructure/rag/dry_run_simulator.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/infrastructure/rag/dry_run_simulator.py).
 
 #### US-IA-09 : Guardrail Éthique Anti-Hallucination & Verrouillage Domaine Vierge (TNR-09)
 - **User Story :** En tant que responsable de la souveraineté, je veux que le pipeline RAG intercepte et bloque formellement toute tentative de génération si le domaine interrogé ne contient aucun document indexé (`documents_count == 0`), afin d'éradiquer toute hallucination hors-sol.

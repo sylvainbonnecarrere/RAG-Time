@@ -110,6 +110,25 @@ class DryRunChunkPreviewDTO(BaseModel):
     excerpt: str
 
 
+class TokenHistogramDTO(BaseModel):
+    median_tokens: float
+    percentile_25: float
+    percentile_75: float
+    bucket_less_than_60: int = 0
+    bucket_60_to_150: int = 0
+    bucket_151_to_300: int = 0
+    bucket_301_to_500: int = 0
+    bucket_501_to_800: int = 0
+    bucket_more_than_800: int = 0
+
+
+class SemanticAuditDTO(BaseModel):
+    under_chunked_count: int
+    over_chunked_count: int
+    is_balanced: bool
+    diagnostic: str
+
+
 class DryRunSimulationResponse(BaseModel):
     total_chunks: int
     total_tokens: int
@@ -120,4 +139,7 @@ class DryRunSimulationResponse(BaseModel):
     hnsw_overhead_bytes: int
     total_vram_bytes: int
     preview_chunks: list[DryRunChunkPreviewDTO]
+    histogram: TokenHistogramDTO | None = None
+    semantic_audit: SemanticAuditDTO | None = None
+
 
