@@ -88,3 +88,36 @@ class DocumentUploadResponse(BaseModel):
 class DocumentScrapeRequest(BaseModel):
     url: HttpUrl
     description: str | None = None
+
+
+# =========================================================================
+# DTOs pour Simulation Dry-Run Pré-Indexation (US-BACK-07 & TNR-29)
+# =========================================================================
+
+class DryRunSimulationRequest(BaseModel):
+    text: str
+    strategy: str | None = None
+    chunk_size: int | None = None
+    chunk_overlap: int | None = None
+    prefix_section_title: bool | None = None
+
+
+class DryRunChunkPreviewDTO(BaseModel):
+    chunk_index: int
+    token_count: int
+    char_count: int
+    context_prefix: str | None = None
+    excerpt: str
+
+
+class DryRunSimulationResponse(BaseModel):
+    total_chunks: int
+    total_tokens: int
+    avg_tokens_per_chunk: float
+    min_tokens: int
+    max_tokens: int
+    raw_vector_bytes: int
+    hnsw_overhead_bytes: int
+    total_vram_bytes: int
+    preview_chunks: list[DryRunChunkPreviewDTO]
+

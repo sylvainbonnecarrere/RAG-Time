@@ -12,6 +12,8 @@ from datetime import UTC, datetime
 from app.core.anti_ssrf import assert_url_safe
 from app.core.database import get_tenant_session
 from app.core.worker import IngestionQueueService
+from app.infrastructure.rag.deterministic_cleaner import DeterministicCleanerAdapter
+from app.infrastructure.rag.multi_strategy_chunker import MultiStrategyChunkerAdapter
 from app.models.documents import (
     Document,
     DocumentRead,
@@ -19,8 +21,12 @@ from app.models.documents import (
     DocumentUploadResponse,
     DocumentVersion,
     DocumentVersionRead,
+    DryRunChunkPreviewDTO,
+    DryRunSimulationRequest,
+    DryRunSimulationResponse,
     IngestionJobRead,
 )
+from app.models.presets import RagPreset
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import delete, select
 
@@ -380,6 +386,110 @@ async def scrape_web_document(
     )
 
     return DocumentUploadResponse(document=doc_read, job=job_read)
+
+
+@router.post("/dry-run", response_model=DryRunSimulationResponse, status_code=status.HTTP_200_OK)
+async def simulate_pre_indexing_dry_run(
+    tenant_id: uuid.UUID,
+    request: DryRunSimulationRequest,
+):
+    """
+    Simulateur Dry-Run Pré-Indexation 100% en Mémoire (US-BACK-07 & TNR-29).
+    - Exécute le pipeline en mémoire sans AUCUN appel SQL INSERT.
+    - Calcule l'histogramme de tokens (min, max, moyenne) et le budget VRAM pgvector HNSW.
+    - Restitue les 3 premiers fragments découpés.
+    - Valide l'invariant strict TNR-28 : chunk_overlap < chunk_size / 2.
+    """
+    cleaner = DeterministicCleanerAdapter()
+    chunker = MultiStrategyChunkerAdapter()
+
+    # 1. Récupération du preset actif si paramètres non spécifiés
+    async with get_tenant_session(tenant_id) as session:
+        stmt_preset = (
+            select(RagPreset)
+            .where(RagPreset.tenant_id == tenant_id, RagPreset.is_active == True)
+            .limit(1)
+        )
+        res_preset = await session.execute(stmt_preset)
+        preset = res_preset.scalars().first()
+
+    strategy = request.strategy or (preset.chunking_strategy if preset else "fixed_sliding")
+    chunk_size = request.chunk_size if request.chunk_size is not None else (preset.chunk_size if preset else 512)
+    chunk_overlap = request.chunk_overlap if request.chunk_overlap is not None else (preset.chunk_overlap if preset else 64)
+    prefix_titles = request.prefix_section_title if request.prefix_section_title is not None else (preset.prefix_section_title if preset else True)
+
+    # 2. Validation de l'invariant TNR-28
+    if chunk_overlap >= (chunk_size / 2):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"TNR-28 Invariant Violé: chunk_overlap ({chunk_overlap}) doit être strictement inférieur à chunk_size / 2 ({chunk_size / 2})",
+        )
+
+    # 3. Nettoyage mécanique déterministe en mémoire
+    clean_res = cleaner.clean(request.text)
+
+    # 4. Partitionnement multi-stratégies en mémoire
+    try:
+        raw_chunks = chunker.chunk(
+            text=clean_res.cleaned_text,
+            strategy=strategy,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            prefix_section_title=prefix_titles,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    total_chunks = len(raw_chunks)
+    if total_chunks == 0:
+        return DryRunSimulationResponse(
+            total_chunks=0,
+            total_tokens=0,
+            avg_tokens_per_chunk=0.0,
+            min_tokens=0,
+            max_tokens=0,
+            raw_vector_bytes=0,
+            hnsw_overhead_bytes=0,
+            total_vram_bytes=0,
+            preview_chunks=[],
+        )
+
+    tokens = [c.token_count for c in raw_chunks]
+    total_tokens = sum(tokens)
+    min_tokens = min(tokens)
+    max_tokens = max(tokens)
+    avg_tokens = round(total_tokens / total_chunks, 1)
+
+    # 5. Calcul VRAM pgvector HNSW 768d (TNR-29)
+    # raw_bytes = chunks * 768 * 4
+    # hnsw_bytes = round(raw_bytes * 1.5)
+    raw_vector_bytes = total_chunks * 768 * 4
+    hnsw_overhead_bytes = round(raw_vector_bytes * 1.5)
+    total_vram_bytes = raw_vector_bytes + hnsw_overhead_bytes
+
+    # 6. Échantillon des 3 premiers fragments
+    previews = [
+        DryRunChunkPreviewDTO(
+            chunk_index=c.chunk_index,
+            token_count=c.token_count,
+            char_count=len(c.content),
+            context_prefix=c.context_prefix,
+            excerpt=c.content[:200] + ("..." if len(c.content) > 200 else ""),
+        )
+        for c in raw_chunks[:3]
+    ]
+
+    return DryRunSimulationResponse(
+        total_chunks=total_chunks,
+        total_tokens=total_tokens,
+        avg_tokens_per_chunk=avg_tokens,
+        min_tokens=min_tokens,
+        max_tokens=max_tokens,
+        raw_vector_bytes=raw_vector_bytes,
+        hnsw_overhead_bytes=hnsw_overhead_bytes,
+        total_vram_bytes=total_vram_bytes,
+        preview_chunks=previews,
+    )
 
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -150,17 +150,19 @@
   - `test_arq_worker_pipeline.py` : Exécution complète du worker sur un corpus de test avec vérification du nombre de chunks insérés.
   - `tnr_cleaning_invisibles.py` (TNR-27) : Vérification de l'absence de caractères de contrôle dans les chunks en base.
 
-#### US-BACK-07 : Endpoint de Simulation Dry-Run Pré-Indexation
-- **User Story :** En tant qu'analyste RAG, je veux appeler `POST /api/v1/documents/dry-run` pour prévisualiser en direct le nombre de chunks, l'estimation de tokens et l'empreinte VRAM pgvector sans persistance en base de données.
+#### US-BACK-07 : Endpoint de Simulation Dry-Run Pré-Indexation [STATUT : VALIDÉ (JALON 2)]
+- **User Story :** En tant qu'analyste RAG, je veux appeler `POST /api/v1/tenants/{tenant_id}/documents/dry-run` pour prévisualiser en direct le nombre de chunks, l'estimation de tokens et l'empreinte VRAM pgvector sans persistance en base de données.
 - **Tâche PR :** `feat(dry-run-api): in-memory pre-indexing dry run simulation endpoint`
 - **Pattern & SOLID :** *Command Pattern* (idempotence sans effet de bord).
 - **Critères d'Acceptation :**
-  - Exécution du pipeline en mémoire vive pure sans appel SQL `INSERT`.
-  - Calcul de l'estimation mémoire VRAM : $\text{chunks} \times 768 \times 4$ octets bruts $+$ index HNSW.
-  - Restitution paginée des 3 premiers chunks générés.
-- **Tests Préalables (TDD - Pytest) :**
-  - `test_dry_run_endpoint.py` : Vérification qu'aucun enregistrement n'a été créé dans la table `document_chunks`.
-  - `tnr_dryrun_isolation.py` (TNR-29) : Test d'isolation totale sans effet de bord.
+  - Exécution du pipeline en mémoire vive pure sans appel SQL `INSERT` (`TNR-29`).
+  - Calcul de l'estimation mémoire VRAM : $\text{raw\_bytes} = \text{chunks} \times 768 \times 4$ octets, $\text{hnsw\_bytes} = \text{round}(\text{raw\_bytes} \times 1.5)$, $\text{total\_vram} = \text{raw\_bytes} + \text{hnsw\_bytes}$.
+  - Validation bloquante de l'invariant `chunk_overlap < chunk_size / 2` (`TNR-28`).
+  - Restitution paginée des 3 premiers chunks générés (`DryRunChunkPreviewDTO`).
+- **Tests Préalables & Preuve de Validation :**
+  - `backend/tests/test_dry_run_endpoint.py` : 3 tests validant la structure nominale 200 OK, l'absence absolue de persistance en base (COUNT(document_chunks) == 0 et COUNT(documents) == 0 - TNR-29), et le rejet d'overlap non conforme (TNR-28).
+  - Invariants `TNR-28` et `TNR-29` validés à 100%.
+  - Implémentation : [backend/app/api/v1/endpoints/documents.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/api/v1/endpoints/documents.py) et [backend/app/models/documents.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/models/documents.py).
 
 ---
 
