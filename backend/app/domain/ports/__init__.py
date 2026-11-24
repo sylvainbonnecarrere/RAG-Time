@@ -11,6 +11,11 @@ from app.domain.ports.dry_run import (
     TokenHistogram,
     VramEstimation,
 )
+from app.domain.ports.hybrid_search import (
+    HybridChunkResult,
+    HybridSearchPort,
+    compute_rrf_scores,
+)
 from app.domain.ports.text_cleaner import CleaningResult, TextCleanerPort
 from app.domain.ports.vector_storage import (
     EmbeddingModelPort,
@@ -27,6 +32,8 @@ __all__ = [
     "DryRunSimulatorPort",
     "EmbeddingModelPort",
     "ExtractedDocument",
+    "HybridChunkResult",
+    "HybridSearchPort",
     "RawChunk",
     "ScoredChunk",
     "SemanticAudit",
@@ -34,4 +41,5 @@ __all__ = [
     "TokenHistogram",
     "VectorStoragePort",
     "VramEstimation",
+    "compute_rrf_scores",
 ]

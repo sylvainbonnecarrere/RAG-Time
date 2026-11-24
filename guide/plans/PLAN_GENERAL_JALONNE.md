@@ -15,7 +15,7 @@ JALON 2 : PIPELINE D'INGESTION, TRAFILATURA & WORKERS ARQ (Semaine 2)
 
 JALON 3 : MOTEUR VECTORIEL HYBRIDE RRF & STREAMING SSE FASTAPI (Semaine 3)
 ├── IA/RAG : Indexation pgvector HNSW 768d nomic-embed (US-IA-04) [VALIDÉ]
-├── IA/RAG : Recherche hybride Dense/Sparse BM25 + Algorithme RRF k=60 (US-IA-05)
+├── IA/RAG : Recherche hybride Dense/Sparse BM25 + Algorithme RRF k=60 (US-IA-05) [VALIDÉ]
 ├── IA/RAG : Re-ranking Cross-Encoder bge-reranker et calcul Δ Top-1 (US-IA-06)
 ├── Backend : Contrôleur SSE /stream avec 8 événements et Last-Event-ID (US-BACK-09)
 ├── Backend : Presets nommés par domaine et initialisation usine (US-BACK-10)

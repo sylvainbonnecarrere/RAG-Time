@@ -93,17 +93,20 @@
   - Invariant `TNR-04` validé à 100%.
   - Implémentation : [backend/app/domain/ports/vector_storage.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/domain/ports/vector_storage.py), [backend/app/infrastructure/rag/ollama_embedding.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/infrastructure/rag/ollama_embedding.py) et [backend/app/infrastructure/rag/pgvector_storage.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/infrastructure/rag/pgvector_storage.py).
 
-#### US-IA-05 : Algorithme de Recherche Hybride Dense/Sparse & Fusion RRF ($k=60$)
+#### US-IA-05 : Algorithme de Recherche Hybride Dense/Sparse & Fusion RRF ($k=60$) [STATUT : VALIDÉ (JALON 3)]
 - **User Story :** En tant que moteur de recherche, je veux réconcilier la recherche sémantique dense (pgvector) et la recherche lexicale clairsemée (PostgreSQL Full-Text BM25) via la formule Reciprocal Rank Fusion avec constante $k=60$ pour repêcher les documents comportant des mots-clés exacts rares.
 - **Tâche PR :** `feat(rag-hybrid-rrf): hybrid retrieval engine combining dense cosine and sparse BM25 with RRF k=60`
 - **Pattern & SOLID :** *Strategy Pattern*, *Rank Fusion Adapter*.
 - **Critères d'Acceptation :**
-  - Calcul de rang pour chaque candidat : $RRF(d) = \frac{1}{60 + r_{dense}} + \frac{1}{60 + r_{sparse}}$.
-  - Repêchage validé des chunks contenant des termes métier rares (ex: codes d'erreur, références juridiques).
-  - Élimination des chunks sous le seuil d'admissibilité configuré dans le preset actif.
-- **Tests Préalables (TDD - Pytest) :**
-  - `test_rrf_algorithm.py` : Vérification du reclassement de chunks repêchés par BM25.
-  - `tnr_rrf_consistency.py` (TNR-07) : Non-régression sur le calcul de fusion réciproque.
+  - Calcul déterministe de rang pour chaque candidat : $RRF(d) = \sum_{m} \frac{w_m}{k + r_m(d)}$ avec $k=60$.
+  - Moteur de recherche lexicale FTS multi-dictionnaires (`french` pour la lemmatisation linguistique et `simple` pour les codes d'erreur, sigles et UUIDs).
+  - Repêchage validé des chunks contenant des termes métier ou codes techniques rares (ex: `ERR_SEC_CERT_REVOKED_9921`).
+  - Résilience aux requêtes vides et aux caractères syntaxiques spéciaux (`plainto_tsquery` sécurisé).
+  - Étanchéité multi-tenant absolue sous RLS PostgreSQL (`TNR-02`).
+- **Tests Préalables & Preuve de Validation :**
+  - `backend/tests/test_rrf_algorithm.py` : 6 tests unitaires et d'intégration validant l'exactitude mathématique de la formule $1/(60+r)$, la commutativité des rangs, les pondérations personnalisées, le repêchage d'un code technique absent du Top dense, la résilience aux caractères spéciaux et le cloisonnement RLS (0 fuite inter-tenant).
+  - Invariant `TNR-07` / fusion hybride validé à 100%.
+  - Implémentation : [backend/app/domain/ports/hybrid_search.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/domain/ports/hybrid_search.py) et [backend/app/infrastructure/rag/hybrid_retriever.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/infrastructure/rag/hybrid_retriever.py).
 
 #### US-IA-06 : Re-ranking Local Cross-Encoder `bge-reranker-base` & Métriques Cosinus
 - **User Story :** En tant qu'analyste qualité RAG, je veux réordonner le Top-K contextuel via le modèle local Cross-Encoder `bge-reranker-base`, calculer le $\Delta$ par rapport au Top-1 pour chaque citation, et fournir les scores nécessaires à la jauge thermique de l'UI.
