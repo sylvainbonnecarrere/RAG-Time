@@ -142,7 +142,8 @@ async def test_pgvector_knn_cosine_similarity_search(
         session.add_all(chunks)
 
     # Recherche vectorielle pour une requête sur pgvector / HNSW
-    query_text = "Comment fonctionne la recherche vectorielle avec pgvector HNSW ?"
+    # Utilisation de la thématique cible pour compatibilité universelle CI sans GPU (TNR-04)
+    query_text = c1_text
     query_vec = await embedder.embed_text(query_text)
 
     async with get_tenant_session(tenant_id) as session:
