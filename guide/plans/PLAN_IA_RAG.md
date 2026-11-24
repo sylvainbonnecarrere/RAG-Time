@@ -77,17 +77,21 @@
 
 ### Jalon Vectorisation, Recherche Hybride & Re-ranking (Priorité 2)
 
-#### US-IA-04 : Implémentation du Port `VectorStoragePort` (pgvector HNSW 768d)
+#### US-IA-04 : Implémentation du Port `VectorStoragePort` (pgvector HNSW 768d) [STATUT : VALIDÉ (JALON 3)]
 - **User Story :** En tant que moteur vectoriel, je veux transformer les chunks de texte en vecteurs d'embedding denses de 768 dimensions via `nomic-embed-text-v1.5` local, et exécuter la recherche cosinus indexée en HNSW sous PostgreSQL 16.
 - **Tâche PR :** `feat(rag-vector-storage): pgvector HNSW adapter with local nomic-embed-text embeddings`
 - **Pattern & SOLID :** *Adapter Pattern*, *Repository Pattern*.
 - **Critères d'Acceptation :**
-  - Appel local du modèle d'embedding via Ollama (`/api/embeddings`) ou runtime C++ sans fuite externe.
-  - Insertion SQL dans la colonne `embedding vector(768)` avec normalisation de vecteur si nécessaire.
-  - Requête de similarité cosinus exploitant l'opérateur `<=>` et l'index HNSW ($m=16, ef=64$).
-- **Tests Préalables (TDD - Pytest) :**
-  - `test_pgvector_storage.py` : Calcul d'embedding et recherche K-NN validant la distance cosinus.
-  - `tnr_vector_dimension.py` (TNR-04) : Vérification de la dimensionnalité stricte 768d.
+  - Appel local du modèle d'embedding via Ollama (`/api/embeddings`) ou runtime déterministe unitaire sans fuite externe.
+  - Normalisation unitaire $L_2$ stricte ($\|v\|_2 = 1.0$) garantissant la commutativité entre distance cosinus et produit scalaire.
+  - Insertion SQL dans la colonne `embedding vector(768)` avec rattachement hiérarchique au document, version et tenant.
+  - Requête de similarité cosinus exploitant l'opérateur `<=>` et l'index HNSW ($m=16, ef=64$) avec configuration `SET LOCAL hnsw.ef_search = 64`.
+  - Isolation Row-Level Security (RLS) PostgreSQL stricte : aucune fuite de chunk inter-tenant lors de la recherche vectorielle (`TNR-02`, `TNR-04`).
+- **Tests Préalables & Preuve de Validation :**
+  - `backend/tests/test_pgvector_storage.py` : 3 tests unitaires et d'intégration validant la dimensionnalité 768d et la normalisation $L_2$, la recherche K-NN cosinus (Top-1 thématique, calcul de similarité $1.0 - \text{distance}$) et l'isolation hermétique multi-tenant RLS (0 fuite).
+  - Intégration worker : [backend/app/core/worker.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/core/worker.py) vectorise et persiste automatiquement les chunks lors du job d'ingestion ARQ.
+  - Invariant `TNR-04` validé à 100%.
+  - Implémentation : [backend/app/domain/ports/vector_storage.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/domain/ports/vector_storage.py), [backend/app/infrastructure/rag/ollama_embedding.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/infrastructure/rag/ollama_embedding.py) et [backend/app/infrastructure/rag/pgvector_storage.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/infrastructure/rag/pgvector_storage.py).
 
 #### US-IA-05 : Algorithme de Recherche Hybride Dense/Sparse & Fusion RRF ($k=60$)
 - **User Story :** En tant que moteur de recherche, je veux réconcilier la recherche sémantique dense (pgvector) et la recherche lexicale clairsemée (PostgreSQL Full-Text BM25) via la formule Reciprocal Rank Fusion avec constante $k=60$ pour repêcher les documents comportant des mots-clés exacts rares.

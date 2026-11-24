@@ -12,6 +12,11 @@ from app.domain.ports.dry_run import (
     VramEstimation,
 )
 from app.domain.ports.text_cleaner import CleaningResult, TextCleanerPort
+from app.domain.ports.vector_storage import (
+    EmbeddingModelPort,
+    ScoredChunk,
+    VectorStoragePort,
+)
 
 __all__ = [
     "ChunkerPort",
@@ -20,10 +25,13 @@ __all__ = [
     "DocumentParserPort",
     "DryRunAnalysis",
     "DryRunSimulatorPort",
+    "EmbeddingModelPort",
     "ExtractedDocument",
     "RawChunk",
+    "ScoredChunk",
     "SemanticAudit",
     "TextCleanerPort",
     "TokenHistogram",
+    "VectorStoragePort",
     "VramEstimation",
 ]

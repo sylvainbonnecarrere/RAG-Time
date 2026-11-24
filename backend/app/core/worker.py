@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.database import get_tenant_session
 from app.infrastructure.rag.deterministic_cleaner import DeterministicCleanerAdapter
 from app.infrastructure.rag.multi_strategy_chunker import MultiStrategyChunkerAdapter
+from app.infrastructure.rag.ollama_embedding import OllamaEmbeddingAdapter
 from app.infrastructure.rag.trafilatura_extractor import TrafilaturaExtractorAdapter
 from app.models.chunks import DocumentChunk
 from app.models.documents import Document, DocumentVersion
@@ -99,12 +100,13 @@ async def process_document_ingestion(
             metadata={"source_url": source_url} if source_url else {},
         )
 
-        # Étape 4 : Création des entités DocumentChunk sous PostgreSQL
-        # Pour le Jalon 2, vecteur zéro ou déterministe 768d avant le Jalon 3 (nomic-embed)
-        zero_vector = [0.0] * 768
+        # Étape 4 : Vectorisation locale dense 768d (nomic-embed) et création des entités DocumentChunk
+        embedder = OllamaEmbeddingAdapter(dimension=768)
+        chunk_contents = [rc.content for rc in raw_chunks]
+        embeddings = await embedder.embed_batch(chunk_contents)
 
         db_chunks = []
-        for rc in raw_chunks:
+        for rc, emb in zip(raw_chunks, embeddings, strict=True):
             db_chunk = DocumentChunk(
                 document_id=doc_uuid,
                 version_id=ver_uuid,
@@ -116,7 +118,7 @@ async def process_document_ingestion(
                 section_title=rc.section_title,
                 sha256_hash=rc.sha256_hash,
                 token_count=rc.token_count,
-                embedding=zero_vector,
+                embedding=emb,
                 chunk_metadata={
                     "char_start": rc.char_start,
                     "char_end": rc.char_end,
