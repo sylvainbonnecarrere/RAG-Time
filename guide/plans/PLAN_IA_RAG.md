@@ -108,17 +108,19 @@
   - Invariant `TNR-07` / fusion hybride validé à 100%.
   - Implémentation : [backend/app/domain/ports/hybrid_search.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/domain/ports/hybrid_search.py) et [backend/app/infrastructure/rag/hybrid_retriever.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/infrastructure/rag/hybrid_retriever.py).
 
-#### US-IA-06 : Re-ranking Local Cross-Encoder `bge-reranker-base` & Métriques Cosinus
+#### US-IA-06 : Re-ranking Local Cross-Encoder `bge-reranker-base` & Métriques Cosinus [STATUT : VALIDÉ (JALON 3)]
 - **User Story :** En tant qu'analyste qualité RAG, je veux réordonner le Top-K contextuel via le modèle local Cross-Encoder `bge-reranker-base`, calculer le $\Delta$ par rapport au Top-1 pour chaque citation, et fournir les scores nécessaires à la jauge thermique de l'UI.
 - **Tâche PR :** `feat(rag-reranker): local Cross-Encoder re-ranking with bge-reranker-base and top-1 delta metrics`
 - **Pattern & SOLID :** *Decorator Pattern*, *Adapter Pattern*.
 - **Critères d'Acceptation :**
-  - Exécution locale du Cross-Encoder en inférence rapide (< 45 ms pour le Top-10).
-  - Calcul du score cosinus absolu, du statut thermique (Émeraude $\ge 0.85$, Cyan, Ambre, Rose) et du $\Delta$ Top-1 ($\text{score} - \text{score}_{\text{top1}}$).
-  - Formatage des métadonnées de citations transmises dans l'événement SSE `sources.available`.
-- **Tests Préalables (TDD - Pytest) :**
-  - `test_cross_encoder_rerank.py` : Vérification de l'affinement du Top-K sans dégradation du score cosinus originel.
-  - `tnr_cosine_visual_scale.py` (TNR-25) : Validation des tranches thermiques et de la précision du delta.
+  - Exécution locale du Cross-Encoder en inférence rapide (< 45 ms pour le Top-10) avec fallback déterministe unitaire.
+  - Calcul du score cosinus absolu, du statut thermique (Émeraude $\ge 0.85$, Cyan $\ge 0.70$, Ambre $\ge 0.60$, Rose $< 0.60$) (`TNR-31`).
+  - Calcul rigoureux du $\Delta$ Top-1 ($\text{round}(\text{score} - \text{score}_{\text{top1}}, 3)$) (`TNR-25`).
+  - Formatage standardisé des citations `[Document_Name, p.X]` (`TNR-14`) avec empreinte cryptographique SHA-256 certifiée (`TNR-04`).
+- **Tests Préalables & Preuve de Validation :**
+  - `backend/tests/test_cross_encoder_rerank.py` : 5 tests unitaires validant l'étalonnage thermique quadripartite, la conformité de citation [Document, p.X], le Delta Top-1 conforme au scénario certifié (-0.027), la promotion contextuelle par le Cross-Encoder et la gestion des cas limites.
+  - Invariants `TNR-14`, `TNR-25` et `TNR-31` validés à 100%.
+  - Implémentation : [backend/app/domain/ports/reranker.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/domain/ports/reranker.py) et [backend/app/infrastructure/rag/reranker.py](file:///c:/AITest/RAGTIME/RAG-Time/backend/app/infrastructure/rag/reranker.py).
 
 ---
 

@@ -16,6 +16,13 @@ from app.domain.ports.hybrid_search import (
     HybridSearchPort,
     compute_rrf_scores,
 )
+from app.domain.ports.reranker import (
+    RerankedChunk,
+    RerankerPort,
+    calculate_top1_deltas,
+    classify_thermal_status,
+    format_citation_label,
+)
 from app.domain.ports.text_cleaner import CleaningResult, TextCleanerPort
 from app.domain.ports.vector_storage import (
     EmbeddingModelPort,
@@ -35,11 +42,16 @@ __all__ = [
     "HybridChunkResult",
     "HybridSearchPort",
     "RawChunk",
+    "RerankedChunk",
+    "RerankerPort",
     "ScoredChunk",
     "SemanticAudit",
     "TextCleanerPort",
     "TokenHistogram",
     "VectorStoragePort",
     "VramEstimation",
+    "calculate_top1_deltas",
+    "classify_thermal_status",
     "compute_rrf_scores",
+    "format_citation_label",
 ]
