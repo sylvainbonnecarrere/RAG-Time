@@ -117,6 +117,11 @@ class LocalCrossEncoderAdapter(RerankerPort):
                     "cosine_score": c.dense_similarity if c.dense_similarity is not None else 0.5,
                 })
             elif isinstance(c, dict):
+                raw_cos = c.get("cosine_score")
+                if raw_cos is None:
+                    raw_cos = c.get("similarity_score")
+                cos_val = float(raw_cos) if raw_cos is not None else 0.5
+
                 candidates.append({
                     "id": c.get("id", uuid.uuid4()),
                     "document_id": c.get("document_id", uuid.uuid4()),
@@ -130,7 +135,7 @@ class LocalCrossEncoderAdapter(RerankerPort):
                     "token_count": c.get("token_count", 0),
                     "page_number": c.get("page_number"),
                     "metadata": c.get("metadata", {}),
-                    "cosine_score": float(c.get("cosine_score", c.get("similarity_score", 0.5))),
+                    "cosine_score": cos_val,
                 })
 
         # 2. Calcul du score de Re-ranking pour chaque candidat
