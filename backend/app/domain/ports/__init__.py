@@ -16,6 +16,7 @@ from app.domain.ports.hybrid_search import (
     HybridSearchPort,
     compute_rrf_scores,
 )
+from app.domain.ports.llm_generator import LLMGenerationMetrics, LLMGeneratorPort
 from app.domain.ports.reranker import (
     RerankedChunk,
     RerankerPort,
@@ -41,6 +42,8 @@ __all__ = [
     "ExtractedDocument",
     "HybridChunkResult",
     "HybridSearchPort",
+    "LLMGenerationMetrics",
+    "LLMGeneratorPort",
     "RawChunk",
     "RerankedChunk",
     "RerankerPort",

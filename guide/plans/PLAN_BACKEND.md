@@ -181,18 +181,20 @@
   - `test_rrf_fusion.py` : Vérification mathématique de la fusion des rangs et du repêchage de termes rares.
   - `tnr_rrf_consistency.py` (TNR-07) : Test de non-régression sur la formule mathématique.
 
-#### US-BACK-09 : Contrôleur de Streaming SSE Réel (`/api/v1/chat/conversations/{id}/stream`)
+#### US-BACK-09 : Contrôleur de Streaming SSE Réel (`/api/v1/chat/conversations/{id}/stream`) [VALIDÉ]
 - **User Story :** En tant qu'interface conversationnelle, je veux consommer un flux Server-Sent Events (SSE) émettant les 8 événements normalisés avec transport des citations thermiques, métriques TTFT et tolérance aux micro-coupures via `Last-Event-ID`.
 - **Tâche PR :** `feat(sse-streaming): production SSE controller with 8 standardized events and reconnection support`
 - **Pattern & SOLID :** *Observer / Reactive Stream Pattern*, *FSM*.
 - **Critères d'Acceptation :**
-  - Émission ordonnée : `message.started` $\to$ `retrieval.started` $\to$ `retrieval.completed` $\to$ `generation.started` $\to$ `generation.delta` $\to$ `sources.available` $\to$ `message.completed`.
+  - Émission ordonnée : `message.started` $\to$ `retrieval.started` $\to$ `retrieval.completed` $\to$ `sources.available` $\to$ `generation.started` $\to$ `generation.delta` $\to$ `message.completed`.
   - Prise en charge de `Last-Event-ID` pour reprise de flux sans duplication de mots.
   - Calcul et transmission des métriques d'inférence réelles (`ttft_ms`, `tokens_per_second`).
   - Annulation propre du stream en cas de déconnexion client (`asyncio.CancelledError`).
+  - Garde éthique anti-hallucination sur domaine vierge `doc_count == 0` (TNR-09 : `message.failed` avec `ERR_EMPTY_DOMAIN`).
+  - Persistance automatique de la télémétrie dans `query_logs` sous RLS active.
 - **Tests Préalables (TDD - Pytest) :**
-  - `test_sse_stream.py` : Test de streaming avec TestClient validant la structure des 8 trames d'événements.
-  - `tnr_stream_reconnection.py` (TNR-06) : Vérification de la reprise sur `Last-Event-ID`.
+  - `backend/tests/test_sse_stream.py` : Validation des 4 tests nominaux, garde éthique, reconnexion Last-Event-ID et endpoint conversationnel (4/4 PASS).
+  - Non-régression globale : 135/135 tests Pytest PASS (100%), 31/31 TNRs validés (100%).
 
 #### US-BACK-10 : CRUD des Presets Nommés par Domaine & Sélecteur par Défaut (TNR-31)
 - **User Story :** En tant qu'administrateur de domaine, je veux créer, consulter, nommer librement mes presets de retrieval (Top-K, seuil cosinus, Cross-Encoder), désigner le preset par défaut et récupérer les 3 presets d'usine lors de la création d'un domaine.
