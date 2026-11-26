@@ -1292,7 +1292,7 @@ export const RagPresetStudioView: React.FC<RagPresetStudioViewProps> = ({
               <input
                 type="range"
                 min="1"
-                max="12"
+                max="20"
                 step="1"
                 value={formData.retrieval_top_k}
                 onChange={(e) => setFormData({ ...formData, retrieval_top_k: Number(e.target.value) })}
@@ -1301,8 +1301,8 @@ export const RagPresetStudioView: React.FC<RagPresetStudioViewProps> = ({
               />
               <div className="flex justify-between text-[10px] font-mono text-zinc-500">
                 <span>1 (Ciblé)</span>
-                <span>4 (Standard)</span>
-                <span>12 (Exhaustif)</span>
+                <span>5 (Standard)</span>
+                <span>20 (Exhaustif)</span>
               </div>
               <FormFieldFeedback error={presetErrors.retrieval_top_k} />
             </div>

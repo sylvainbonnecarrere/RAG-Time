@@ -288,10 +288,10 @@ export function validatePresetParams(
     warnings.similarity_threshold = "Un seuil supérieur à 0.85 est très strict et risque de filtrer des passages utiles.";
   }
 
-  // Top-K (1 à 12)
+  // Top-K (1 à 20 selon contrat api-types.ts)
   const topK = Number(data.retrieval_top_k);
-  if (isNaN(topK) || topK < 1 || topK > 12) {
-    errors.retrieval_top_k = "Le nombre de fragments extraits (Top-K) doit être compris entre 1 et 12.";
+  if (isNaN(topK) || topK < 1 || topK > 20) {
+    errors.retrieval_top_k = "Le nombre de fragments extraits (Top-K) doit être compris entre 1 et 20.";
   }
 
   return {

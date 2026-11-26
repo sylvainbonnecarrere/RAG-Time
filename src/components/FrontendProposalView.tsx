@@ -166,7 +166,7 @@ export const FrontendProposalView: React.FC<FrontendProposalViewProps> = ({ onNa
             <h3 className="text-lg font-bold text-zinc-100 flex items-center justify-between">
               <span>User Stories V1 & Phases Avancées (Architecture & Tests)</span>
               <span className="text-xs font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-2.5 py-1 rounded">
-                23 Tests & TNR Validés (100% au Vert)
+                30 Tests & TNR Validés (100% au Vert)
               </span>
             </h3>
 
@@ -521,7 +521,49 @@ export const FrontendProposalView: React.FC<FrontendProposalViewProps> = ({ onNa
                     <td className="py-2.5 px-3 text-zinc-300 font-sans">Similarité Cosinus Visuelle</td>
                     <td className="py-2.5 px-3 text-zinc-400 font-sans">Affichage du gradient cosinus (0.50 &agrave; 1.00)</td>
                     <td className="py-2.5 px-3 text-zinc-300 font-sans">Calibration exacte de la jauge avec le vecteur Nomic 768d</td>
-                    <td className="py-2.5 px-3 text-right text-emerald-400 font-sans">Spécifié (P7)</td>
+                    <td className="py-2.5 px-3 text-right text-emerald-400 font-sans">Vérifié</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 text-emerald-400 font-bold">TNR-26</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Extraction Trafilatura</td>
+                    <td className="py-2.5 px-3 text-zinc-400 font-sans">Scrape web avec boilerplate ou tags HTML</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Élimination intégrale du bruit et conservation textuelle propre</td>
+                    <td className="py-2.5 px-3 text-right text-emerald-400 font-sans">Vérifié</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 text-emerald-400 font-bold">TNR-27</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Nettoyage Déterministe NFC</td>
+                    <td className="py-2.5 px-3 text-zinc-400 font-sans">Caractères invisibles, espaces insécables et diacritiques</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Normalisation Unicode NFC et suppression des caractères nuls</td>
+                    <td className="py-2.5 px-3 text-right text-emerald-400 font-sans">Vérifié</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 text-emerald-400 font-bold">TNR-28</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Invariants Multi-Stratégies</td>
+                    <td className="py-2.5 px-3 text-zinc-400 font-sans">Contrainte overlap &lt; size / 2</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Rejet formel et validation déterministe par schéma</td>
+                    <td className="py-2.5 px-3 text-right text-emerald-400 font-sans">Vérifié</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 text-emerald-400 font-bold">TNR-29</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Simulateur Dry-Run Pré-Indexation</td>
+                    <td className="py-2.5 px-3 text-zinc-400 font-sans">Simulation en mémoire sans persistance</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Calcul VRAM, histogramme tokens et zéro écriture BDD</td>
+                    <td className="py-2.5 px-3 text-right text-emerald-400 font-sans">Vérifié</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 text-emerald-400 font-bold">TNR-30</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Scellement Vectoriel & Retrieval Seul</td>
+                    <td className="py-2.5 px-3 text-zinc-400 font-sans">Modification de preset sur domaine alimenté</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Interdiction de changer chunk_size mais seuils retrieval autorisés</td>
+                    <td className="py-2.5 px-3 text-right text-emerald-400 font-sans">Vérifié</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 text-emerald-400 font-bold">TNR-31</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Palette Thermique Cosinus</td>
+                    <td className="py-2.5 px-3 text-zinc-400 font-sans">Classification des scores cosinus</td>
+                    <td className="py-2.5 px-3 text-zinc-300 font-sans">Étalonnage quadripartite/tripartite (emerald &ge;0.75, amber, rose)</td>
+                    <td className="py-2.5 px-3 text-right text-emerald-400 font-sans">Vérifié</td>
                   </tr>
                 </tbody>
               </table>
